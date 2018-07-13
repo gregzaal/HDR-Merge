@@ -1,0 +1,4 @@
+config.json
+pushover.json
+*.blend?
+/tmp
