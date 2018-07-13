@@ -32,7 +32,9 @@ Running the script for the first time will prompt you to edit `exe_paths.json` t
 
 The folder you select should contain all the photos you took when shooting. The script will automatically read the metadata and determine which images should be grouped together and merged.
 
-For example
+Exposures must always be decending or ascending (`0 + ++` or `0 - --`, never `- 0 +` or `0 + -`).
+
+For example:
 
 * C:/Foo/bar/
     * `IMG001.tif` - 1/4000 F/8 ISO100
@@ -52,3 +54,9 @@ The script will discover that images `IMG001.tif` and `IMG004.tif` have the same
     * `IMG004.tif`
     * `IMG005.tif`
     * `IMG006.tif`
+
+## TODO
+
+* Don't use PyQT. Installation is not reliable, rather use Tk.
+* Support arbitrary user-created ND filter compensations.
+* Allow for inconsistant exposure brackets - currently the first exposure set determines how many images there are per set, but it should be possible to support exposure sets with varying numbers of images.
