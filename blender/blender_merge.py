@@ -49,13 +49,11 @@ if "ND8" in FILTERS:
 if "ND400" in FILTERS:
     filter_fix('ND400', nt, nodes)
 
-OUT_FOLDER = OUT_FOLDER.replace('\\', '/')
-OUT_FOLDER += '/' if not OUT_FOLDER.endswith('/') else ''
 if not os.path.exists(OUT_FOLDER):
     os.makedirs(OUT_FOLDER)
 
 rset = bpy.context.scene.render
-rset.filepath = OUT_FOLDER + "merged_" + str(INDEX).zfill(3) + ".exr"
+rset.filepath = os.path.join(OUT_FOLDER, "merged_" + str(INDEX).zfill(3) + ".exr")
 rset.resolution_x = RESOLUTION[0]
 rset.resolution_y = RESOLUTION[1]
 
