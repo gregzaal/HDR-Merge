@@ -1,4 +1,4 @@
-config.json
+exe_paths.json
 pushover.json
 *.blend?
 /tmp
