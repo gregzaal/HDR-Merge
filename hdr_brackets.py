@@ -4,13 +4,23 @@ import subprocess
 import json
 import exifread
 from math import log
-from PyQt4 import QtGui, QtCore
+from tkinter import *
+from tkinter import filedialog, messagebox, ttk
 from concurrent.futures import ThreadPoolExecutor
+import threading
 from time import sleep
 import http.client, urllib
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 SCRIPT_DIR = SCRIPT_DIR+('/' if not SCRIPT_DIR.endswith('/') else '')
+
+def center(win):
+    win.update_idletasks()
+    width = win.winfo_width()
+    height = win.winfo_height()
+    x = (win.winfo_screenwidth() // 2) - (width // 2)
+    y = (win.winfo_screenheight() // 2) - (height+32 // 2)  # Add 32 to account for titlebar & borders
+    win.geometry('{}x{}+{}+{}'.format(width, height, x, y))
 
 def read_json(fp):
     with open(fp, 'r') as f:
@@ -42,6 +52,15 @@ def get_exe_paths():
     return exe_paths
 
 EXE_PATHS = get_exe_paths()
+
+def play_sound(sf):
+    if os.path.exists(sf):
+        try:
+            from winsound import PlaySound, SND_FILENAME
+        except ImportError:
+            pass
+        else:
+            PlaySound(sf, SND_FILENAME)
 
 def notify_phone(msg="Done"):
     pushover_cfg_f = os.path.join(SCRIPT_DIR, 'pushover.json')
@@ -79,91 +98,86 @@ def ev_diff(bright_image, dark_image):
     dr_iso = log(bright_image['iso']/dark_image['iso'], 2)
     return dr_shutter + dr_aperture + dr_iso
 
-class HDRBrackets(QtGui.QMainWindow):
+
+class HDRBrackets(Frame):
     
-    def __init__(self):
-        super(HDRBrackets, self).__init__()
+    def __init__(self, master=None):
+        Frame.__init__(self, master)
+        self.master = master
         
         self.initUI()
         
     def initUI(self):
-        clipboard = QtGui.QApplication.clipboard().text()
+        self.master.title("HDR Brackets")
+        self.pack(fill=BOTH, expand=True)
 
-        pixmap = QtGui.QPixmap("icons/browse.png")
-        icon_browse = QtGui.QIcon(pixmap)
+        padding = 8
+        self.buttons_to_disable = []
+
+        clipboard = None
+        try:
+            clipboard = Frame.clipboard_get(self)
+        except TclError:
+            pass
 
         # ========== Input ==========
+        r1 = Frame(master=self)
         initial_label = "Select a folder..."
         if clipboard:  # if a path is copied in clipboard, fill it in automatically
             if os.path.exists(clipboard):
                 initial_label = clipboard
 
-        lbl_input = QtGui.QLabel("Input Folder:", self)
-        lbl_input.move(19,10)
+        lbl_input = Label(r1, text="Input Folder:")
+        lbl_input.pack(side=LEFT, padx=(padding, 0))
 
-        self.input_folder = QtGui.QLineEdit(initial_label, self)        
-        self.input_folder.move(90,14)
-        self.input_folder.resize(455, 21)
-        self.input_folder.textChanged[str].connect(self.changeInputFolder)
+        self.input_folder = Entry(r1)
+        self.input_folder.insert(0, initial_label)
+        self.input_folder.pack(side=LEFT, fill=X, expand=True, padx=padding)
+        self.buttons_to_disable.append(self.input_folder)
 
-        btn_browse = QtGui.QPushButton('', self)
-        btn_browse.clicked.connect(self.set_input_folder)
-        btn_browse.resize(21, 21)
-        btn_browse.move(523, 14)        
-        btn_browse.setFlat(True)
-        btn_browse.setIcon(icon_browse)
+        btn_browse = Button(r1, text='Browse', command=self.set_input_folder)
+        btn_browse.pack(side=RIGHT, padx=(0, padding))
+        self.buttons_to_disable.append(btn_browse)
 
-        lbl_pattern = QtGui.QLabel("Matching Pattern:", self)
-        lbl_pattern.move(19,41)
+        r1.pack(fill=X, pady=(padding, 0))
+        r2 = Frame(master=self)
 
-        self.extension = QtGui.QLineEdit(".tif", self)
-        self.extension.setStyleSheet("qproperty-alignment: AlignRight;")
-        self.extension.move(110,45)
-        self.extension.resize(45, 21)
+        lbl_pattern = Label(r2, text="Matching Pattern:")
+        lbl_pattern.pack(side=LEFT, padx=(padding, 0))
+        self.extension = Entry(r2, width=6)
+        self.extension.insert(0, ".tif")
+        self.extension.pack(side=LEFT, padx=(padding/2, 0))
+        self.buttons_to_disable.append(self.extension)
 
-        self.num_threads = QtGui.QSpinBox(self)
-        self.num_threads.resize(90, 22)
-        self.num_threads.move(165, 45)
-        self.num_threads.setRange(1, 9999999)
-        self.num_threads.setSingleStep(1)
-        self.num_threads.setPrefix("Threads: ")
-        self.num_threads.setValue(6)
+        lbl_threads = Label(r2, text="Threads:")
+        lbl_threads.pack(side=LEFT, padx=(padding, 0))
+        self.num_threads = Spinbox(r2, from_=1, to=9999999, width=2)
+        self.num_threads.delete(0, "end")
+        self.num_threads.insert(0, "6")
+        self.num_threads.pack(side=LEFT, padx=(padding/3, 0))
+        self.buttons_to_disable.append(self.num_threads)
 
-        lbl_pattern = QtGui.QLabel("Filters Used:", self)
-        lbl_pattern.move(270,41)
-        self.filter = QtGui.QComboBox(self)
-        self.filter.addItem("None")
-        self.filter.addItem("ND8")
-        self.filter.addItem("ND400")
-        self.filter.addItem("ND8 + ND400")
-        self.filter.move(337, 45)
-        self.filter.resize(90, 22)
+        self.btn_execute = Button(r2, text='Create HDRs', command=self.execute)
+        self.btn_execute.pack(side=RIGHT, fill=X, expand=True, padx=padding)
+        self.buttons_to_disable.append(self.btn_execute)
 
-        self.btn_execute = QtGui.QPushButton('Create HDRs', self)
-        self.btn_execute.clicked.connect(self.execute)
-        self.btn_execute.resize(self.btn_execute.sizeHint())
-        self.btn_execute.move(472, 44)
-        self.btn_execute.setEnabled(os.path.exists(self.input_folder.text()))
+        r2.pack(fill=X, pady=(padding, 0))
+        r3 = Frame(master=self)
 
-        self.progress = QtGui.QProgressBar(self)
-        self.progress.setTextVisible(False)
-        self.progress.move(3, 70)
-        self.progress.resize(554, 8)
-        self.progress.hide()
+        self.progress=ttk.Progressbar(r3,orient=HORIZONTAL,length=100,mode='determinate')
+        self.progress.pack(fill=X)
 
-        
-        # Window details
-        self.setWindowTitle('HDR Brackets')
-        self.setFixedSize(560, 80)
-        self.setWindowIcon(QtGui.QIcon('icons/icon.png'))  
-        self.center()
-        self.show()
+        r3.pack(fill=X, pady=(padding, 0))
+
 
     def set_input_folder(self):
-        path = str(QtGui.QFileDialog.getExistingDirectory(self, "Select Directory"))
-        if path:  # if user didn't press cancel
-            self.input_folder.setText(path)
-            QtGui.QApplication.clipboard().setText(self.input_folder.text())  # copy path to clipboard
+        path = filedialog.askdirectory()
+        if path:
+            self.input_folder.delete(0, END)
+            self.input_folder.insert(0, path)
+            self.btn_execute['text'] = "Create HDRs"
+            self.progress['value'] = 0
+
 
     def do_merge(self, blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe):
         print ("Merging", i)
@@ -201,89 +215,95 @@ class HDRBrackets(QtGui.QMainWindow):
         ]
         subprocess.call(cmd)
 
+
     def execute(self):
-        print ("Starting...")
-        self.progress.setValue(0)
-        self.progress.show()
+        def real_execute():
+            if not os.path.exists(self.input_folder.get()):
+                messagebox.showerror("Folder does not exist", "The input path you have selected does not exist!")
+                return
 
-        global EXE_PATHS
-        global SCRIPT_DIR
-        blender_exe = EXE_PATHS['blender_exe']
-        luminance_cli_exe = EXE_PATHS['luminance_cli_exe']
-        merge_blend = os.path.join(SCRIPT_DIR, "blender", "HDR_Merge.blend")
-        merge_py = os.path.join(SCRIPT_DIR, "blender", "blender_merge.py")
+            print ("Starting...")
+            self.btn_execute['text'] = "Busy..."
+            self.progress['value'] = 0
 
-        folder = self.input_folder.text()
-        folder = folder.replace('\\', '/')
-        folder += '/' if not folder.endswith('/') else ''
-        out_folder = folder + "Merged/exr/"
-        files = [folder+f for f in os.listdir(folder) if f.endswith(self.extension.text())]
+            for btn in self.buttons_to_disable:
+                btn['state'] = 'disabled'
 
-        # Analyze EXIF to determine number of brackets
-        exifs = []
-        for f in files:
-            e = get_exif(f)
-            if e in exifs:
-                break
-            exifs.append(e)
-        brackets = len(exifs)
-        print ("\nBrackets:", brackets)
-        evs = [ev_diff({"shutter_speed": 1000000000, "aperture": 0.1, "iso": 1000000000000}, e) for e in exifs]
-        evs = [ev-min(evs) for ev in evs]
+            global EXE_PATHS
+            global SCRIPT_DIR
+            blender_exe = EXE_PATHS['blender_exe']
+            luminance_cli_exe = EXE_PATHS['luminance_cli_exe']
+            merge_blend = os.path.join(SCRIPT_DIR, "blender", "HDR_Merge.blend")
+            merge_py = os.path.join(SCRIPT_DIR, "blender", "blender_merge.py")
 
-        filter_used = self.filter.currentText().replace(' ', '').replace('+', '_')
+            folder = self.input_folder.get()
+            folder = folder.replace('\\', '/')
+            folder += '/' if not folder.endswith('/') else ''
+            out_folder = folder + "Merged/exr/"
+            files = [folder+f for f in os.listdir(folder) if f.endswith(self.extension.get())]
 
-        # Do merging
-        executor = ThreadPoolExecutor(max_workers=self.num_threads.value())
-        threads = []
-        sets = chunks(files, brackets)
-        print ("Sets:", len(sets), "\n")
-        for i,s in enumerate(sets):
-            img_list = []
-            for ii,img in enumerate(s):
-                img_list.append(img+'___'+str(evs[ii]))
-            if not os.path.exists(os.path.join(out_folder, "merged_"+str(i).zfill(3)+".exr")):
-                # self.do_merge (blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
-                t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
-                threads.append(t)
-            else:
-                print ("Skipping set", i)
+            # Analyze EXIF to determine number of brackets
+            exifs = []
+            for f in files:
+                e = get_exif(f)
+                if e in exifs:
+                    break
+                exifs.append(e)
+            brackets = len(exifs)
+            print ("\nBrackets:", brackets)
+            evs = [ev_diff({"shutter_speed": 1000000000, "aperture": 0.1, "iso": 1000000000000}, e) for e in exifs]
+            evs = [ev-min(evs) for ev in evs]
 
-        while (any(t._state!="FINISHED" for t in threads)):
-            sleep (2)
-            QtCore.QCoreApplication.processEvents()
-            num_finished = 0
-            for tt in threads:
-                if tt._state == "FINISHED":
-                    num_finished += 1
-            progress = (num_finished/len(threads))*100
-            print ("Progress:", progress)
-            self.progress.setValue(int(progress))
+            filter_used = "None"  # self.filter.get().replace(' ', '').replace('+', '_')  # Depreciated
 
-        print ("Done!!!")
-        sf = "C:/Windows/Media/Speech On.wav"
-        if os.path.exists(sf):
-            QtGui.QSound(sf).play()
-        notify_phone(folder)
-        
-    def center(self):        
-        qr = self.frameGeometry()
-        cp = QtGui.QDesktopWidget().availableGeometry().center()
-        qr.moveCenter(cp)
-        self.move(qr.topLeft())
+            # Do merging
+            executor = ThreadPoolExecutor(max_workers=int(self.num_threads.get()))
+            threads = []
+            sets = chunks(files, brackets)
+            print ("Sets:", len(sets), "\n")
+            for i,s in enumerate(sets):
+                img_list = []
+                for ii,img in enumerate(s):
+                    img_list.append(img+'___'+str(evs[ii]))
+                if not os.path.exists(os.path.join(out_folder, "merged_"+str(i).zfill(3)+".exr")):
+                    # self.do_merge (blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
+                    t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
+                    threads.append(t)
+                else:
+                    print ("Skipping set", i)
 
-    def changeInputFolder(self, text):
-        self.progress.hide()
-        self.btn_execute.setEnabled(os.path.exists(self.input_folder.text()))
+            while (any(t._state!="FINISHED" for t in threads)):
+                sleep (2)
+                self.update()
+                num_finished = 0
+                for tt in threads:
+                    if tt._state == "FINISHED":
+                        num_finished += 1
+                progress = (num_finished/len(threads))*100
+                print ("Progress:", progress)
+                self.progress['value'] = int(progress)
+
+            print ("Done!!!")
+            self.btn_execute['text'] = "Done!"
+            play_sound("C:/Windows/Media/Speech On.wav")
+            notify_phone(folder)
+            for btn in self.buttons_to_disable:
+                btn['state'] = 'normal'
+            self.update()
+
+        threading.Thread(target=real_execute).start()  # Run in a separate thread to keep UI alive
         
         
 def main():
     print ("This window will report detailed progress of the blender renders.")
     print ("Use the other window to start the merging process.")
     
-    app = QtGui.QApplication(sys.argv)
-    ex = HDRBrackets()
-    sys.exit(app.exec_())
+    root = Tk()
+    root.geometry("450x86")
+    center(root)
+    root.iconbitmap(os.path.join(SCRIPT_DIR, "icons/icon.ico"))
+    app = HDRBrackets(root)
+    root.mainloop()
 
 
 if __name__ == '__main__':
