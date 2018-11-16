@@ -11,7 +11,7 @@ Requires:
 
 1. Install the required software above.
 2. [Download](https://github.com/gregzaal/HDR-Merge/archive/master.zip) or [clone](git@github.com:gregzaal/HDR-Merge.git) this repository. 
-3. Run the executable `build/hdr_brackets.exe` (Windows only), **or** run the `hdr_brackets.py` script using the instructions below.
+3. Run the executable `build/hdr_brackets.exe` (Windows only), **OR** run the `hdr_brackets.py` script using the instructions below.
 
 ### Run From Source
 
@@ -27,14 +27,14 @@ You will need:
 Running the script for the first time will prompt you to edit `exe_paths.json` to fill in the paths to your `blender.exe` and `luminance-hdr-cli.exe` executable files. Then:
 
 1. Select a folder that contains your full set of exposure brackets (see *Example Folder Structure* below)
-2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but **RAW files from your camera will not work**. I typically do some minor tweaks to them in Lightroom first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script.
+2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but **RAW files from your camera will not work**. I typically do some minor tweaks to the RAW files in Lightroom first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script.
 3. Choose the number of threads (the number of simultaneous bracketed exposures to merge). Use as many threads as you can without running out of RAM or freezing your computer. In my experience 6 threads usually works fine for 32 GB RAM.
 4. Click *Create HDRs*, and monitor the console window for progress and errors.
-5. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files, while the `jpg` folder contains tonemapped versions of the EXRs.
+5. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files, while the `jpg` folder contains tonemapped versions of those files.
 
-## Example Folder Structure
+## Example Input Folder Structure
 
-The script will automatically read the metadata and determine which images should be grouped together and merged.
+All the input files must be in the same folder. The script will automatically read the metadata and determine which images should be grouped together and merged.
 
 Exposures must always be decending or ascending (`0 + ++` or `0 - --`, never `0 + -`).
 
