@@ -1,38 +1,42 @@
 # HDR-Merge
 
-A script that uses Blender's compositor to reliably merge exposure brackets to a 32-bit EXR file.
+A script that uses Blender's compositor to reliably merge exposure brackets to 32-bit EXR files in bulk.
 
 ## Installation
 
-### Binaries
-
-Coming soon.
-
-### From Source
-
 Requires:
 
-* [Python 3.5](https://www.python.org/downloads/release/python-354/)
 * Blender ([2.78](http://download.blender.org/release/Blender2.78/) or [2.79](http://download.blender.org/release/Blender2.79/) recommended)
 * [Luminance HDR](http://qtpfsgui.sourceforge.net/?page_id=10) (tested with [2.4.0](https://sourceforge.net/projects/qtpfsgui/files/luminance/2.4.0/))
-* ExifRead python library - install with `pip install exifread`
 
-Only tested on windows, but *should* work on linux/mac.
+1. Install the required software above.
+2. [Download](https://github.com/gregzaal/HDR-Merge/archive/master.zip) or [clone](git@github.com:gregzaal/HDR-Merge.git) this repository. 
+3. Run the executable `build/hdr_brackets.exe` (Windows only), **or** run the `hdr_brackets.py` script using the instructions below.
+
+### Run From Source
+
+This program is a simple python script that can be run straight from the `.py` script if you can't or don't want to use the pre-built executable. It has only been tested on windows, but *should* work on linux/mac too.
+
+You will need:
+
+* [Python 3.5](https://www.python.org/downloads/release/python-354/)
+* ExifRead python library - install with `pip install exifread`
 
 ## Usage
 
-Running the script for the first time will prompt you to edit `exe_paths.json` to fill in the paths to your `blender.exe` and `luminance-hdr-cli.exe` executable files.
+Running the script for the first time will prompt you to edit `exe_paths.json` to fill in the paths to your `blender.exe` and `luminance-hdr-cli.exe` executable files. Then:
 
 1. Select a folder that contains your full set of exposure brackets (see *Example Folder Structure* below)
-2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work. Raw files from your camera wont work, so I typically do some minor tweaks to them in Lightroom first (e.g. chromatic aberration correction) and then export 16-bit .tif files.
-3. Choose the number of threads - this is the number of simultaneous bracketed exposures to merge. This affects processing speed, but not linearly. Use as many threads as you can without running out of RAM - start with 2 or 3 and monitor RAM usage.
-4. Click *Create HDRs*, and monitor the console window for progress and errors
+2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but **RAW files from your camera will not work**. I typically do some minor tweaks to them in Lightroom first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script.
+3. Choose the number of threads (the number of simultaneous bracketed exposures to merge). Use as many threads as you can without running out of RAM or freezing your computer. In my experience 6 threads usually works fine for 32 GB RAM.
+4. Click *Create HDRs*, and monitor the console window for progress and errors.
+5. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files, while the `jpg` folder contains tonemapped versions of the EXRs.
 
 ## Example Folder Structure
 
-The folder you select should contain all the photos you took when shooting. The script will automatically read the metadata and determine which images should be grouped together and merged.
+The script will automatically read the metadata and determine which images should be grouped together and merged.
 
-Exposures must always be decending or ascending (`0 + ++` or `0 - --`, never `- 0 +` or `0 + -`).
+Exposures must always be decending or ascending (`0 + ++` or `0 - --`, never `0 + -`).
 
 For example:
 
