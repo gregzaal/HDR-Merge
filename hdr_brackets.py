@@ -288,12 +288,12 @@ class HDRBrackets(Frame):
                 self.progress['value'] = int(progress)
 
             print ("Done!!!")
-            self.btn_execute['text'] = "Done!"
-            self.btn_execute['command'] = self.quit
-            play_sound("C:/Windows/Media/Speech On.wav")
             notify_phone(folder)
             for btn in self.buttons_to_disable:
                 btn['state'] = 'normal'
+            self.btn_execute['text'] = "Done!"
+            self.btn_execute['command'] = self.quit
+            play_sound("C:/Windows/Media/Speech On.wav")
             self.update()
 
         threading.Thread(target=real_execute).start()  # Run in a separate thread to keep UI alive
