@@ -11,7 +11,10 @@ import threading
 from time import sleep
 import http.client, urllib
 
-SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+if getattr(sys, 'frozen', False):
+    SCRIPT_DIR = os.path.dirname(sys.executable)  # Built with cx_freeze
+else:
+    SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 SCRIPT_DIR = SCRIPT_DIR+('/' if not SCRIPT_DIR.endswith('/') else '')
 
 def center(win):
@@ -176,6 +179,7 @@ class HDRBrackets(Frame):
             self.input_folder.delete(0, END)
             self.input_folder.insert(0, path)
             self.btn_execute['text'] = "Create HDRs"
+            self.btn_execute['command'] = self.execute
             self.progress['value'] = 0
 
 
@@ -285,6 +289,7 @@ class HDRBrackets(Frame):
 
             print ("Done!!!")
             self.btn_execute['text'] = "Done!"
+            self.btn_execute['command'] = self.quit
             play_sound("C:/Windows/Media/Speech On.wav")
             notify_phone(folder)
             for btn in self.buttons_to_disable:
@@ -292,12 +297,18 @@ class HDRBrackets(Frame):
             self.update()
 
         threading.Thread(target=real_execute).start()  # Run in a separate thread to keep UI alive
+
+
+    def quit(self):
+        global root
+        root.destroy()
         
         
 def main():
     print ("This window will report detailed progress of the blender renders.")
     print ("Use the other window to start the merging process.")
     
+    global root
     root = Tk()
     root.geometry("450x86")
     center(root)
