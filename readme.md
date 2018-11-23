@@ -2,6 +2,8 @@
 
 A script that uses Blender's compositor to reliably merge exposure brackets to 32-bit EXR files in bulk.
 
+![screenshot](https://raw.githubusercontent.com/gregzaal/HDR-Merge/master/icons/screenshot.png)
+
 ## Installation
 
 Requires:
@@ -13,7 +15,7 @@ Requires:
 2. [Download](https://github.com/gregzaal/HDR-Merge/archive/master.zip) or [clone](git@github.com:gregzaal/HDR-Merge.git) this repository. 
 3. Run the executable `build/hdr_brackets.exe` (Windows only), **OR** run the `hdr_brackets.py` script using the instructions below.
 
-### Run From Source
+### Run From Source (optional)
 
 This program is a simple python script that can be run straight from the `.py` script if you can't or don't want to use the pre-built executable. It has only been tested on windows, but *should* work on linux/mac too.
 
@@ -31,6 +33,8 @@ Running the script for the first time will prompt you to edit `exe_paths.json` t
 3. Choose the number of threads (the number of simultaneous bracketed exposures to merge). Use as many threads as you can without running out of RAM or freezing your computer. In my experience 6 threads usually works fine for 32 GB RAM.
 4. Click *Create HDRs*, and monitor the console window for progress and errors.
 5. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files, while the `jpg` folder contains tonemapped versions of those files.
+
+The idea here is to stitch with the JPG files (which load quickly and, being tonemapped, show more dynamic range), and then swap the JPGs out with the EXR files at the end before your final export.
 
 ## Example Input Folder Structure
 
