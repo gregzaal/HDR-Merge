@@ -36,6 +36,8 @@ Running the script for the first time will prompt you to edit `exe_paths.json` t
 
 The idea here is to stitch with the JPG files (which load quickly and, being tonemapped, show more dynamic range), and then swap the JPGs out with the EXR files at the end before your final export.
 
+Note: This tool does not do any alignment or ghost removal, so it's important that you use a steady tripod when shooting.
+
 ## Example Input Folder Structure
 
 All the input files must be in the same folder. The script will automatically read the metadata and determine which images should be grouped together and merged.
