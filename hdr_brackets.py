@@ -27,7 +27,9 @@ def center(win):
 
 def read_json(fp):
     with open(fp, 'r') as f:
-        data = json.load(f)
+        s = f.read()
+        s = s.replace('\\', '/')  # JSON doesn't like backslashes in paths
+        data = json.loads(s)
     return data
 
 def get_exe_paths():
@@ -46,8 +48,10 @@ def get_exe_paths():
     else:
         exe_paths = read_json(cf)
         for k in default_exe_paths.keys():
-            if not os.path.exists(exe_paths[k]):
-                error = exe_paths[k]+" either doesn't exist or is an invalid path."
+            if exe_paths[k] == "":
+                error = "You need to configure some paths first. Edit the 'exe_paths.json' file next to this script and fill in the paths."
+            elif not os.path.exists(exe_paths[k]):
+                error = "\""+exe_paths[k]+"\" in exe_paths.json either doesn't exist or is an invalid path."
     if error:
         print (error)
         input("Press enter to exit.")
