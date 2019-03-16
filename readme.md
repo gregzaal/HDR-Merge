@@ -26,7 +26,16 @@ You will need:
 
 ## Usage
 
-Running the script for the first time will prompt you to edit `exe_paths.json` to fill in the paths to your `blender.exe` and `luminance-hdr-cli.exe` executable files. Then:
+Running the script for the first time will prompt you to edit `exe_paths.json` to fill in the paths to your `blender.exe` and `luminance-hdr-cli.exe` executable files. It should look something like this:
+
+```
+{
+    "blender_exe": "C:\Program Files\Blender 2.79\blender.exe",
+    "luminance_cli_exe": "C:\Program Files\LuminanceHDR\luminance-hdr-cli.exe"
+}
+```
+
+Then:
 
 1. Select a folder that contains your full set of exposure brackets (see *Example Folder Structure* below)
 2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but **RAW files from your camera will not work**. I typically do some minor tweaks to the RAW files in Lightroom first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script.
