@@ -8,8 +8,8 @@ A script that uses Blender's compositor to reliably merge exposure brackets to 3
 
 Requires:
 
-* Blender ([2.78](http://download.blender.org/release/Blender2.78/) or [2.79](http://download.blender.org/release/Blender2.79/) recommended)
-* [Luminance HDR](http://qtpfsgui.sourceforge.net/?page_id=10) (tested with [2.4.0](https://sourceforge.net/projects/qtpfsgui/files/luminance/2.4.0/))
+* [Blender 2.79](http://download.blender.org/release/Blender2.79/)
+* [Luminance HDR v2.4.0](https://sourceforge.net/projects/qtpfsgui/files/luminance/2.4.0/) (later versions will not work)
 
 1. Install the required software above.
 2. [Download](https://github.com/gregzaal/HDR-Merge/archive/master.zip) or [clone](git@github.com:gregzaal/HDR-Merge.git) this repository. 
