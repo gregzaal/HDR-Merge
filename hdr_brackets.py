@@ -1,7 +1,7 @@
 import sys
-import os
 import subprocess
 import json
+import pathlib
 import exifread
 from math import log
 from tkinter import *
@@ -12,10 +12,10 @@ from time import sleep
 import http.client, urllib
 
 if getattr(sys, 'frozen', False):
-    SCRIPT_DIR = os.path.dirname(sys.executable)  # Built with cx_freeze
+    SCRIPT_DIR = pathlib.Path(sys.executable).parent  # Built with cx_freeze
 else:
-    SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-SCRIPT_DIR = SCRIPT_DIR+('/' if not SCRIPT_DIR.endswith('/') else '')
+    SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+
 
 def center(win):
     win.update_idletasks()
@@ -25,33 +25,38 @@ def center(win):
     y = (win.winfo_screenheight() // 2) - (height+32 // 2)  # Add 32 to account for titlebar & borders
     win.geometry('{}x{}+{}+{}'.format(width, height, x, y))
 
-def read_json(fp):
-    with open(fp, 'r') as f:
+def read_json(fp: pathlib.Path) -> dict:
+    with fp.open('r') as f:
         s = f.read()
-        s = s.replace('\\', '/')  # JSON doesn't like backslashes in paths
-        data = json.loads(s)
-    return data
+        s = s.replace('\\', '/')  # Work around invalid JSON when people paste single backslashes in there.
+        try:
+            return json.loads(s)
+        except json.JSONDecodeError as ex:
+            raise RuntimeError('Error reading JSON from %s: %s' % (fp, ex))
 
-def get_exe_paths():
+def get_exe_paths() -> dict:
     global SCRIPT_DIR
-    cf = os.path.join(SCRIPT_DIR, 'exe_paths.json')
+    cf = SCRIPT_DIR / 'exe_paths.json'
     default_exe_paths = {
         "blender_exe": "",
         "luminance_cli_exe": ""
     }
     exe_paths = {}
     error = ""
-    if not os.path.exists(cf):
-        with open(cf, 'w') as f:
-            f.write(json.dumps(default_exe_paths, f, indent=4, sort_keys=True))
-        error = "You need to configure some paths first. Edit the 'exe_paths.json' file next to this script and fill in the paths."
+    missing_json_error = "You need to configure some paths first. Edit the '%s' file and fill in the paths." % cf
+
+    if not cf.exists() or cf.stat().st_size == 0:
+        with cf.open('w') as f:
+            json.dump(default_exe_paths, f, indent=4, sort_keys=True)
+        error = missing_json_error + ' (file does not exist or is empty)'
     else:
         exe_paths = read_json(cf)
-        for k in default_exe_paths.keys():
-            if exe_paths[k] == "":
-                error = "You need to configure some paths first. Edit the 'exe_paths.json' file next to this script and fill in the paths."
-            elif not os.path.exists(exe_paths[k]):
-                error = "\""+exe_paths[k]+"\" in exe_paths.json either doesn't exist or is an invalid path."
+        for key, path in exe_paths.items():
+            if not path:
+                error = missing_json_error  + ' (%s is empty)' % key
+                break
+            if not pathlib.Path(path).exists():
+                error = "\"%s\" in exe_paths.json either doesn't exist or is an invalid path." % path
     if error:
         print (error)
         input("Press enter to exit.")
@@ -60,8 +65,8 @@ def get_exe_paths():
 
 EXE_PATHS = get_exe_paths()
 
-def play_sound(sf):
-    if os.path.exists(sf):
+def play_sound(sf: str):
+    if pathlib.Path(sf).exists():
         try:
             from winsound import PlaySound, SND_FILENAME
         except ImportError:
@@ -70,8 +75,8 @@ def play_sound(sf):
             PlaySound(sf, SND_FILENAME)
 
 def notify_phone(msg="Done"):
-    pushover_cfg_f = os.path.join(SCRIPT_DIR, 'pushover.json')
-    if not os.path.exists(pushover_cfg_f):
+    pushover_cfg_f = SCRIPT_DIR / 'pushover.json'
+    if not pushover_cfg_f.exists():
         return
 
     pushover_cfg = read_json(pushover_cfg_f)
@@ -89,10 +94,10 @@ def chunks(l, n):
         n = 1
     return [l[i:i + n] for i in range(0, len(l), n)]
 
-def get_exif(filepath):
-    f = open(filepath, 'rb')
-    tags = exifread.process_file(f)
-    f.close()
+def get_exif(filepath: pathlib.Path):
+    with filepath.open('rb') as f:
+        tags = exifread.process_file(f)
+
     resolution = str(tags["Image ImageWidth"]) + 'x' + str(tags["Image ImageLength"])
     shutter_speed = eval(str(tags["EXIF ExposureTime"]))
     aperture = eval(str(tags["EXIF FNumber"]))
@@ -121,7 +126,7 @@ class HDRBrackets(Frame):
         padding = 8
         self.buttons_to_disable = []
 
-        clipboard = None
+        clipboard = ''
         try:
             clipboard = Frame.clipboard_get(self)
         except TclError:
@@ -131,8 +136,12 @@ class HDRBrackets(Frame):
         r1 = Frame(master=self)
         initial_label = "Select a folder..."
         if clipboard:  # if a path is copied in clipboard, fill it in automatically
-            if os.path.exists(clipboard):
-                initial_label = clipboard
+            try:
+                clippath = pathlib.Path(clipboard)
+                if clippath.exists():
+                    initial_label = clipboard
+            except OSError:
+                pass  # Not a valid path.
 
         lbl_input = Label(r1, text="Input Folder:")
         lbl_input.pack(side=LEFT, padx=(padding, 0))
@@ -187,46 +196,51 @@ class HDRBrackets(Frame):
             self.progress['value'] = 0
 
 
-    def do_merge(self, blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe):
+    def do_merge(self, blender_exe: str,
+                 merge_blend: pathlib.Path, merge_py: pathlib.Path,
+                 exifs, out_folder: pathlib.Path,
+                 filter_used, i, img_list, folder: pathlib.Path, luminance_cli_exe):
         print ("Merging", i)
         cmd = [
             blender_exe,
             '--background',
-            merge_blend,
+            merge_blend.as_posix(),
             '--factory-startup',
             '--python',
-            merge_py,
+            merge_py.as_posix(),
             '--',
             exifs[0]['resolution'],
-            out_folder,
+            out_folder.as_posix(),
             filter_used,
             str(i)
         ]
         cmd += img_list
-        subprocess.call(cmd)
+        subprocess.check_call(cmd)
 
-        f = 'merged_'+str(i).zfill(3)+'.exr'
-        jpg_folder = folder+"Merged/jpg/"
-        jpg_name = f.split('.')[0] + ".jpg"
-        if not os.path.exists(jpg_folder):
-            os.makedirs(jpg_folder)
+        jpg_folder = out_folder.parent / "jpg"
+        jpg_folder.mkdir(parents=True, exist_ok=True)
+
+        exr_path = out_folder / ('merged_%03d.exr' % i)
+        jpg_path = jpg_folder / exr_path.with_suffix('.jpg').name
+
         cmd = [
             luminance_cli_exe,
             '-l',
-            out_folder + f,
+            exr_path.as_posix(),
             '-t',
             'reinhard02',
             '-q',
             '98',
             '-o',
-            jpg_folder + jpg_name
+            jpg_path.as_posix(),
         ]
-        subprocess.call(cmd)
+        subprocess.check_call(cmd)
 
 
     def execute(self):
         def real_execute():
-            if not os.path.exists(self.input_folder.get()):
+            folder = pathlib.Path(self.input_folder.get())
+            if not folder.exists():
                 messagebox.showerror("Folder does not exist", "The input path you have selected does not exist!")
                 return
 
@@ -241,14 +255,14 @@ class HDRBrackets(Frame):
             global SCRIPT_DIR
             blender_exe = EXE_PATHS['blender_exe']
             luminance_cli_exe = EXE_PATHS['luminance_cli_exe']
-            merge_blend = os.path.join(SCRIPT_DIR, "blender", "HDR_Merge.blend")
-            merge_py = os.path.join(SCRIPT_DIR, "blender", "blender_merge.py")
+            merge_blend = SCRIPT_DIR / "blender" / "HDR_Merge.blend"
+            merge_py = SCRIPT_DIR / "blender" / "blender_merge.py"
 
-            folder = self.input_folder.get()
-            folder = folder.replace('\\', '/')
-            folder += '/' if not folder.endswith('/') else ''
-            out_folder = folder + "Merged/exr/"
-            files = [folder+f for f in os.listdir(folder) if f.endswith(self.extension.get())]
+            out_folder = folder / "Merged/exr"
+            glob = self.extension.get()
+            if '*' not in glob:
+                glob = '*%s' % glob
+            files = list(folder.glob(glob))
 
             # Analyze EXIF to determine number of brackets
             exifs = []
@@ -272,21 +286,30 @@ class HDRBrackets(Frame):
             for i,s in enumerate(sets):
                 img_list = []
                 for ii,img in enumerate(s):
-                    img_list.append(img+'___'+str(evs[ii]))
-                if not os.path.exists(os.path.join(out_folder, "merged_"+str(i).zfill(3)+".exr")):
-                    # self.do_merge (blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
-                    t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
-                    threads.append(t)
-                else:
-                    print ("Skipping set", i)
+                    img_list.append(img.as_posix()+'___'+str(evs[ii]))
 
-            while (any(t._state!="FINISHED" for t in threads)):
-                sleep (2)
+                out_fpath = out_folder / ("merged_%03d.exr" % i)
+                if out_fpath.exists():
+                    print ("Skipping set %d, %s exists" % (i, out_fpath))
+                    continue
+
+                # self.do_merge (blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
+                t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
+                threads.append(t)
+
+            while any(not t.done() for t in threads):
+                sleep(2)
                 self.update()
                 num_finished = 0
+
                 for tt in threads:
-                    if tt._state == "FINISHED":
-                        num_finished += 1
+                    if not tt.done():
+                        continue
+                    try:
+                        tt.result()
+                    except Exception as ex:
+                        print('Exception in thread: %s', ex)
+                    num_finished += 1
                 progress = (num_finished/len(threads))*100
                 print ("Progress:", progress)
                 self.progress['value'] = int(progress)
@@ -316,7 +339,7 @@ def main():
     root = Tk()
     root.geometry("450x86")
     center(root)
-    root.iconbitmap(os.path.join(SCRIPT_DIR, "icons/icon.ico"))
+    root.iconbitmap(str(SCRIPT_DIR / "icons/icon.ico"))
     app = HDRBrackets(root)
     root.mainloop()
 
