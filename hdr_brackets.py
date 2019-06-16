@@ -215,7 +215,7 @@ class HDRBrackets(Frame):
             str(i)
         ]
         cmd += img_list
-        subprocess.call(cmd)
+        subprocess.check_call(cmd)
 
         jpg_folder = out_folder.parent / "jpg"
         jpg_folder.mkdir(parents=True, exist_ok=True)
@@ -234,7 +234,7 @@ class HDRBrackets(Frame):
             '-o',
             jpg_path.as_posix(),
         ]
-        subprocess.call(cmd)
+        subprocess.check_call(cmd)
 
 
     def execute(self):
@@ -297,13 +297,19 @@ class HDRBrackets(Frame):
                 t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
                 threads.append(t)
 
-            while (any(t._state!="FINISHED" for t in threads)):
-                sleep (2)
+            while any(not t.done() for t in threads):
+                sleep(2)
                 self.update()
                 num_finished = 0
+
                 for tt in threads:
-                    if tt._state == "FINISHED":
-                        num_finished += 1
+                    if not tt.done():
+                        continue
+                    try:
+                        tt.result()
+                    except Exception as ex:
+                        print('Exception in thread: %s', ex)
+                    num_finished += 1
                 progress = (num_finished/len(threads))*100
                 print ("Progress:", progress)
                 self.progress['value'] = int(progress)
