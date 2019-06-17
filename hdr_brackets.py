@@ -201,10 +201,13 @@ class HDRBrackets(Frame):
                  exifs, out_folder: pathlib.Path,
                  filter_used, i, img_list, folder: pathlib.Path, luminance_cli_exe):
 
-        jpg_folder = out_folder / "jpg"
+        exr_folder = out_folder / 'exr'
+        jpg_folder = out_folder / 'jpg'
+
+        exr_folder.mkdir(parents=True, exist_ok=True)
         jpg_folder.mkdir(parents=True, exist_ok=True)
 
-        exr_path = out_folder / ('exr/merged_%03d.exr' % i)
+        exr_path = exr_folder / ('merged_%03d.exr' % i)
         jpg_path = jpg_folder / exr_path.with_suffix('.jpg').name
 
         if exr_path.exists():
