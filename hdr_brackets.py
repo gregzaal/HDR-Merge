@@ -201,10 +201,10 @@ class HDRBrackets(Frame):
                  exifs, out_folder: pathlib.Path,
                  filter_used, i, img_list, folder: pathlib.Path, luminance_cli_exe):
 
-        jpg_folder = out_folder.parent / "jpg"
+        jpg_folder = out_folder / "jpg"
         jpg_folder.mkdir(parents=True, exist_ok=True)
 
-        exr_path = out_folder / ('merged_%03d.exr' % i)
+        exr_path = out_folder / ('exr/merged_%03d.exr' % i)
         jpg_path = jpg_folder / exr_path.with_suffix('.jpg').name
 
         if exr_path.exists():
@@ -262,7 +262,7 @@ class HDRBrackets(Frame):
             merge_blend = SCRIPT_DIR / "blender" / "HDR_Merge.blend"
             merge_py = SCRIPT_DIR / "blender" / "blender_merge.py"
 
-            out_folder = folder / "Merged/exr"
+            out_folder = folder / "Merged"
             glob = self.extension.get()
             if '*' not in glob:
                 glob = '*%s' % glob
