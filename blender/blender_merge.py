@@ -1,17 +1,17 @@
 import bpy
 import os
+import pathlib
 import sys
 
 # Example call:
-# blender.exe --background HDR_Merge.blend --factory-startup --python blender_merge.py -- 3456x5184 "C:/foo/bar/Merged" ND8_ND400 0 imgpath1___12 imgpath2___9 imgpath3___6 imgpath4___3 imgpath5___0
+# blender.exe --background HDR_Merge.blend --factory-startup --python blender_merge.py -- 3456x5184 "C:/foo/bar/Merged/exr/merged_000.exr" ND8_ND400 imgpath1___12 imgpath2___9 imgpath3___6 imgpath4___3 imgpath5___0
 
 argv = sys.argv
 argv = argv[argv.index("--")+1:]  # get all args after "--"
 RESOLUTION = [int(d) for d in argv[0].split('x')]  # list where first position is X-res, second position is Y-res
-OUT_FOLDER = argv[1]
+EXR_OUTFILE = argv[1]
 FILTERS = argv[2]
-INDEX = int(argv[3])  # Current set number
-IMAGES = sorted([i.split("___") for i in argv[4:]], key=lambda x: float(x[1]))
+IMAGES = sorted([i.split("___") for i in argv[3:]], key=lambda x: float(x[1]))
 
 nodes = []
 groups = [None]
@@ -49,14 +49,16 @@ if "ND8" in FILTERS:
 if "ND400" in FILTERS:
     filter_fix('ND400', nt, nodes)
 
-if not os.path.exists(OUT_FOLDER):
-    os.makedirs(OUT_FOLDER)
+exr_fpath = pathlib.Path(EXR_OUTFILE)
+
+if not exr_fpath.parent.exists():
+    exr_fpath.parent.mkdir(parents=True, exist_ok=True)
 
 rset = bpy.context.scene.render
-rset.filepath = os.path.join(OUT_FOLDER, "merged_" + str(INDEX).zfill(3) + ".exr")
+rset.filepath = str(exr_fpath)
 rset.resolution_x = RESOLUTION[0]
 rset.resolution_y = RESOLUTION[1]
 
 bpy.ops.render.render(write_still=True)  # Render!
 
-bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT_FOLDER, "bracket_sample.blend"))
+bpy.ops.wm.save_as_mainfile(filepath=str(exr_fpath.with_name("bracket_sample.blend")))
