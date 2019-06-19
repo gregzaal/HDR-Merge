@@ -26,12 +26,12 @@ You will need:
 
 ## Usage
 
-Running the script for the first time will prompt you to edit `exe_paths.json` to fill in the paths to your `blender.exe` and `luminance-hdr-cli.exe` executable files. It should look something like this:
+Running the script for the first time will prompt you to edit `exe_paths.json` to fill in the paths to your `blender.exe` and `luminance-hdr-cli.exe` executable files. It should look something like this (note the double backslashes; you can use forward slashes as well):
 
 ```
 {
-    "blender_exe": "C:\Program Files\Blender 2.79\blender.exe",
-    "luminance_cli_exe": "C:\Program Files\LuminanceHDR\luminance-hdr-cli.exe"
+    "blender_exe": "C:\\Program Files\\Blender 2.79\\blender.exe",
+    "luminance_cli_exe": "C:\\Program Files\\LuminanceHDR\\luminance-hdr-cli.exe"
 }
 ```
 
