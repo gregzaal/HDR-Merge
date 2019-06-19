@@ -200,6 +200,20 @@ class HDRBrackets(Frame):
                  merge_blend: pathlib.Path, merge_py: pathlib.Path,
                  exifs, out_folder: pathlib.Path,
                  filter_used, i, img_list, folder: pathlib.Path, luminance_cli_exe):
+
+        exr_folder = out_folder / 'exr'
+        jpg_folder = out_folder / 'jpg'
+
+        exr_folder.mkdir(parents=True, exist_ok=True)
+        jpg_folder.mkdir(parents=True, exist_ok=True)
+
+        exr_path = exr_folder / ('merged_%03d.exr' % i)
+        jpg_path = jpg_folder / exr_path.with_suffix('.jpg').name
+
+        if exr_path.exists():
+            print ("Skipping set %d, %s exists" % (i, exr_path))
+            return
+
         print ("Merging", i)
         cmd = [
             blender_exe,
@@ -210,18 +224,11 @@ class HDRBrackets(Frame):
             merge_py.as_posix(),
             '--',
             exifs[0]['resolution'],
-            out_folder.as_posix(),
+            exr_path.as_posix(),
             filter_used,
-            str(i)
         ]
         cmd += img_list
         subprocess.check_call(cmd)
-
-        jpg_folder = out_folder.parent / "jpg"
-        jpg_folder.mkdir(parents=True, exist_ok=True)
-
-        exr_path = out_folder / ('merged_%03d.exr' % i)
-        jpg_path = jpg_folder / exr_path.with_suffix('.jpg').name
 
         cmd = [
             luminance_cli_exe,
@@ -258,7 +265,7 @@ class HDRBrackets(Frame):
             merge_blend = SCRIPT_DIR / "blender" / "HDR_Merge.blend"
             merge_py = SCRIPT_DIR / "blender" / "blender_merge.py"
 
-            out_folder = folder / "Merged/exr"
+            out_folder = folder / "Merged"
             glob = self.extension.get()
             if '*' not in glob:
                 glob = '*%s' % glob
@@ -287,11 +294,6 @@ class HDRBrackets(Frame):
                 img_list = []
                 for ii,img in enumerate(s):
                     img_list.append(img.as_posix()+'___'+str(evs[ii]))
-
-                out_fpath = out_folder / ("merged_%03d.exr" % i)
-                if out_fpath.exists():
-                    print ("Skipping set %d, %s exists" % (i, out_fpath))
-                    continue
 
                 # self.do_merge (blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
                 t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
