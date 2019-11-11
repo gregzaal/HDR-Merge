@@ -49,11 +49,9 @@ The intended use here is for creating HDRIs, allowing you to stitch with the JPG
 
 ## Example Input Folder Structure
 
-All the input files must be in the same folder. The script will automatically read the metadata and determine which images should be grouped together and merged.
+The script will automatically read the metadata and determine which images should be grouped together and merged. The entire folder of images will be merged based on the pattern determined by the first set.
 
-Exposures must always be decending or ascending (`0 + ++` or `0 - --`, never `0 + -`).
-
-For example:
+The bracket matching works by checking the exposure metadata of the first image and searching for the next image with the same exposure:
 
 * C:/Foo/bar/
     * `IMG001.tif` - 1/4000 F/8 ISO100
@@ -73,6 +71,8 @@ The script will discover that images `IMG001.tif` and `IMG004.tif` have the same
     * `IMG004.tif`
     * `IMG005.tif`
     * `IMG006.tif`
+
+Exposures can be in any order (`0 + ++`, `0 - --`, `0 + -`, `- 0 +`, etc.).
 
 ## TODO
 
