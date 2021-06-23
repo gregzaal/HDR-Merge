@@ -39,7 +39,8 @@ def get_exe_paths() -> dict:
     cf = SCRIPT_DIR / 'exe_paths.json'
     default_exe_paths = {
         "blender_exe": "",
-        "luminance_cli_exe": ""
+        "luminance_cli_exe": "",
+        "align_image_stack_exe": ""
     }
     exe_paths = {}
     error = ""
@@ -177,6 +178,13 @@ class HDRBrackets(Frame):
         self.num_threads.pack(side=LEFT, padx=(padding/3, 0))
         self.buttons_to_disable.append(self.num_threads)
 
+        self.do_align = BooleanVar()
+        lbl_align = Label(r2, text="Align:")
+        lbl_align.pack(side=LEFT, padx=(padding, 0))
+        self.align = Checkbutton(r2, variable=self.do_align, onvalue=True, offvalue=False)
+        self.align.pack(side=LEFT)
+        self.buttons_to_disable.append(self.align)
+
         self.btn_execute = Button(r2, text='Create HDRs', command=self.execute)
         self.btn_execute.pack(side=RIGHT, fill=X, expand=True, padx=padding)
         self.buttons_to_disable.append(self.btn_execute)
@@ -203,10 +211,12 @@ class HDRBrackets(Frame):
     def do_merge(self, blender_exe: str,
                  merge_blend: pathlib.Path, merge_py: pathlib.Path,
                  exifs, out_folder: pathlib.Path,
-                 filter_used, i, img_list, folder: pathlib.Path, luminance_cli_exe):
+                 filter_used, i, img_list, folder: pathlib.Path, luminance_cli_exe,
+                 align_image_stack_exe):
 
         exr_folder = out_folder / 'exr'
         jpg_folder = out_folder / 'jpg'
+        align_folder = out_folder / 'aligned'
 
         exr_folder.mkdir(parents=True, exist_ok=True)
         jpg_folder.mkdir(parents=True, exist_ok=True)
@@ -217,6 +227,30 @@ class HDRBrackets(Frame):
         if exr_path.exists():
             print ("Skipping set %d, %s exists" % (i, exr_path))
             return
+
+        if self.do_align.get():
+            print ("Aligning", i)
+            align_folder.mkdir(parents=True, exist_ok=True)
+            actual_img_list = [i.split("___")[0] for i in img_list]
+            cmd = [
+                align_image_stack_exe,
+                '-i',
+                '-l',
+                '-a',
+                (align_folder / "align_{}_".format(i)).as_posix(),
+                '--gpu',
+            ]
+            cmd += actual_img_list
+            new_img_list = []
+            for j, img in enumerate(img_list):
+                new_img_list.append((align_folder / "align_{}_{}.tif___{}".format(
+                    i,
+                    str(j).zfill(4),
+                    img_list[j].split('___')[-1]
+                    )).as_posix())
+            subprocess.check_call(cmd)
+            img_list = new_img_list
+
 
         print ("Merging", i)
         cmd = [
@@ -266,6 +300,7 @@ class HDRBrackets(Frame):
             global SCRIPT_DIR
             blender_exe = EXE_PATHS['blender_exe']
             luminance_cli_exe = EXE_PATHS['luminance_cli_exe']
+            align_image_stack_exe = EXE_PATHS['align_image_stack_exe']
             merge_blend = SCRIPT_DIR / "blender" / "HDR_Merge.blend"
             merge_py = SCRIPT_DIR / "blender" / "blender_merge.py"
 
@@ -300,7 +335,7 @@ class HDRBrackets(Frame):
                     img_list.append(img.as_posix()+'___'+str(evs[ii]))
 
                 # self.do_merge (blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
-                t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
+                t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe, align_image_stack_exe)
                 threads.append(t)
 
             while any(not t.done() for t in threads):
