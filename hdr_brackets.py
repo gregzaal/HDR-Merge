@@ -116,13 +116,13 @@ def ev_diff(bright_image, dark_image):
 
 
 class HDRBrackets(Frame):
-    
+
     def __init__(self, master=None):
         Frame.__init__(self, master)
         self.master = master
-        
+
         self.initUI()
-        
+
     def initUI(self):
         self.master.title("HDR Brackets")
         self.pack(fill=BOTH, expand=True)
@@ -335,12 +335,12 @@ class HDRBrackets(Frame):
     def quit(self):
         global root
         root.destroy()
-        
-        
+
+
 def main():
     print ("This window will report detailed progress of the blender renders.")
     print ("Use the other window to start the merging process.")
-    
+
     global root
     root = Tk()
     root.geometry("450x86")
@@ -351,4 +351,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()    
+    main()
