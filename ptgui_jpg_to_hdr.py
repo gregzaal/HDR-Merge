@@ -28,6 +28,19 @@ def go(f):
     data[project_key]["hdrsettings"]["enabled"] = True
     data[project_key]["hdrsettings"]["fileformat"] = "hdr"
     data[project_key]["hdrsettings"]["hdrmethod"] = "truehdr"
+    data[project_key]["hdrsettings"]["fileformat"] = "exr"
+    data[project_key]["hdrsettings"]["precision"] = "float"
+    data[project_key]["hdrsettings"]["exrparams"]["alphamode"] = "noalpha"
+    data[project_key]["hdrsettings"]["exrparams"]["bitdepth"] = "float"
+    data[project_key]["hdrsettings"]["exrparams"]["compression"] = "PIZ"
+
+    for ig in data[project_key]["imagegroups"]:
+        for im in ig["images"]:
+            im["photometric"]["globalcameracurve"] = None
+
+    for gcc in data[project_key]["globalcameracurves"]:
+        gcc["toning"]["luminancecurve"]["a"] = 0
+        gcc["toning"]["luminancecurve"]["b"] = 0
 
     base_dir = os.path.dirname(f)
     images = data[project_key]["imagegroups"]
