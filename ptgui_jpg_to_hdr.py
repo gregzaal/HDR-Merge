@@ -8,6 +8,7 @@ import collections
 f = sys.argv[1]
 # f = "X:\\Panos\\misty_dawn\\misty_dawn.pts"  # testing
 
+
 def go(f):
     filename, p_ext = os.path.splitext(os.path.basename(f))
     folder = os.path.dirname(f)
@@ -47,7 +48,9 @@ def go(f):
     os.rename(f, f_old)
 
     with open(f, 'w') as fw:
-        json.dump(data, fw)  # Add indent=4 for pretty formatting, but double file size
+        # Add indent=4 for pretty formatting, but double file size
+        json.dump(data, fw)
+
 
 go(f)
 sleep(1)
