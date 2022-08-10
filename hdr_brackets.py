@@ -9,7 +9,8 @@ from tkinter import filedialog, messagebox, ttk
 from concurrent.futures import ThreadPoolExecutor
 import threading
 from time import sleep
-import http.client, urllib
+import http.client
+import urllib
 
 if getattr(sys, 'frozen', False):
     SCRIPT_DIR = pathlib.Path(sys.executable).parent  # Built with cx_freeze
@@ -22,17 +23,21 @@ def center(win):
     width = win.winfo_width()
     height = win.winfo_height()
     x = (win.winfo_screenwidth() // 2) - (width // 2)
-    y = (win.winfo_screenheight() // 2) - (height+32 // 2)  # Add 32 to account for titlebar & borders
+    # Add 32 to account for titlebar & borders
+    y = (win.winfo_screenheight() // 2) - (height+32 // 2)
     win.geometry('{}x{}+{}+{}'.format(width, height, x, y))
+
 
 def read_json(fp: pathlib.Path) -> dict:
     with fp.open('r') as f:
         s = f.read()
-        s = s.replace('\\', '/')  # Work around invalid JSON when people paste single backslashes in there.
+        # Work around invalid JSON when people paste single backslashes in there.
+        s = s.replace('\\', '/')
         try:
             return json.loads(s)
         except json.JSONDecodeError as ex:
             raise RuntimeError('Error reading JSON from %s: %s' % (fp, ex))
+
 
 def get_exe_paths() -> dict:
     global SCRIPT_DIR
@@ -54,17 +59,19 @@ def get_exe_paths() -> dict:
         exe_paths = read_json(cf)
         for key, path in exe_paths.items():
             if not path:
-                error = missing_json_error  + ' (%s is empty)' % key
+                error = missing_json_error + ' (%s is empty)' % key
                 break
             if not pathlib.Path(path).exists():
                 error = "\"%s\" in exe_paths.json either doesn't exist or is an invalid path." % path
     if error:
-        print (error)
+        print(error)
         input("Press enter to exit.")
         sys.exit(0)
     return exe_paths
 
+
 EXE_PATHS = get_exe_paths()
+
 
 def play_sound(sf: str):
     if pathlib.Path(sf).exists():
@@ -75,6 +82,7 @@ def play_sound(sf: str):
         else:
             PlaySound(sf, SND_FILENAME)
 
+
 def notify_phone(msg="Done"):
     pushover_cfg_f = SCRIPT_DIR / 'pushover.json'
     if not pushover_cfg_f.exists():
@@ -83,32 +91,38 @@ def notify_phone(msg="Done"):
     pushover_cfg = read_json(pushover_cfg_f)
     conn = http.client.HTTPSConnection("api.pushover.net:443")
     conn.request("POST", "/1/messages.json",
-        urllib.parse.urlencode({
-            "token": pushover_cfg['token'],
-            "user": pushover_cfg['user'],
-            "message": msg,
-        }), { "Content-type": "application/x-www-form-urlencoded" })
+                 urllib.parse.urlencode({
+                     "token": pushover_cfg['token'],
+                     "user": pushover_cfg['user'],
+                     "message": msg,
+                 }), {"Content-type": "application/x-www-form-urlencoded"})
     conn.getresponse()
+
 
 def chunks(l, n):
     if n < 1:
         n = 1
     return [l[i:i + n] for i in range(0, len(l), n)]
 
+
 def get_exif(filepath: pathlib.Path):
     with filepath.open('rb') as f:
         tags = exifread.process_file(f)
 
-    resolution = str(tags["Image ImageWidth"]) + 'x' + str(tags["Image ImageLength"])
+    resolution = str(tags["Image ImageWidth"]) + 'x' + \
+        str(tags["Image ImageLength"])
     shutter_speed = eval(str(tags["EXIF ExposureTime"]))
     aperture = eval(str(tags["EXIF FNumber"]))
     iso = int(str(tags["EXIF ISOSpeedRatings"]))
     return {"resolution": resolution, "shutter_speed": shutter_speed, "aperture": aperture, "iso": iso}
 
+
 def ev_diff(bright_image, dark_image):
-    dr_shutter = log(bright_image['shutter_speed']/dark_image['shutter_speed'], 2)
+    dr_shutter = log(bright_image['shutter_speed'] /
+                     dark_image['shutter_speed'], 2)
     try:
-        dr_aperture = log(dark_image['aperture']/bright_image['aperture'], 1.41421)
+        dr_aperture = log(dark_image['aperture'] /
+                          bright_image['aperture'], 1.41421)
     except ValueError:
         # No lens data means aperture is 0, and we can't divide by 0 :)
         dr_aperture = 0
@@ -181,7 +195,8 @@ class HDRBrackets(Frame):
         self.do_align = BooleanVar()
         lbl_align = Label(r2, text="Align:")
         lbl_align.pack(side=LEFT, padx=(padding, 0))
-        self.align = Checkbutton(r2, variable=self.do_align, onvalue=True, offvalue=False)
+        self.align = Checkbutton(
+            r2, variable=self.do_align, onvalue=True, offvalue=False)
         self.align.pack(side=LEFT)
         self.buttons_to_disable.append(self.align)
 
@@ -192,11 +207,11 @@ class HDRBrackets(Frame):
         r2.pack(fill=X, pady=(padding, 0))
         r3 = Frame(master=self)
 
-        self.progress=ttk.Progressbar(r3,orient=HORIZONTAL,length=100,mode='determinate')
+        self.progress = ttk.Progressbar(
+            r3, orient=HORIZONTAL, length=100, mode='determinate')
         self.progress.pack(fill=X)
 
         r3.pack(fill=X, pady=(padding, 0))
-
 
     def set_input_folder(self):
         path = filedialog.askdirectory()
@@ -206,7 +221,6 @@ class HDRBrackets(Frame):
             self.btn_execute['text'] = "Create HDRs"
             self.btn_execute['command'] = self.execute
             self.progress['value'] = 0
-
 
     def do_merge(self, blender_exe: str,
                  merge_blend: pathlib.Path, merge_py: pathlib.Path,
@@ -225,11 +239,11 @@ class HDRBrackets(Frame):
         jpg_path = jpg_folder / exr_path.with_suffix('.jpg').name
 
         if exr_path.exists():
-            print ("Skipping set %d, %s exists" % (i, exr_path))
+            print("Skipping set %d, %s exists" % (i, exr_path))
             return
 
         if self.do_align.get():
-            print ("Aligning", i)
+            print("Aligning", i)
             align_folder.mkdir(parents=True, exist_ok=True)
             actual_img_list = [i.split("___")[0] for i in img_list]
             cmd = [
@@ -247,12 +261,11 @@ class HDRBrackets(Frame):
                     i,
                     str(j).zfill(4),
                     img_list[j].split('___')[-1]
-                    )).as_posix())
+                )).as_posix())
             subprocess.check_call(cmd)
             img_list = new_img_list
 
-
-        print ("Merging", i)
+        print("Merging", i)
         cmd = [
             blender_exe,
             '--background',
@@ -281,15 +294,15 @@ class HDRBrackets(Frame):
         ]
         subprocess.check_call(cmd)
 
-
     def execute(self):
         def real_execute():
             folder = pathlib.Path(self.input_folder.get())
             if not folder.exists():
-                messagebox.showerror("Folder does not exist", "The input path you have selected does not exist!")
+                messagebox.showerror(
+                    "Folder does not exist", "The input path you have selected does not exist!")
                 return
 
-            print ("Starting...")
+            print("Starting...")
             self.btn_execute['text'] = "Busy..."
             self.progress['value'] = 0
 
@@ -318,24 +331,28 @@ class HDRBrackets(Frame):
                     break
                 exifs.append(e)
             brackets = len(exifs)
-            print ("\nBrackets:", brackets)
-            evs = [ev_diff({"shutter_speed": 1000000000, "aperture": 0.1, "iso": 1000000000000}, e) for e in exifs]
+            print("\nBrackets:", brackets)
+            print("Exifs:", exifs)
+            evs = [ev_diff({"shutter_speed": 1000000000, "aperture": 0.1,
+                           "iso": 1000000000000}, e) for e in exifs]
             evs = [ev-min(evs) for ev in evs]
 
             filter_used = "None"  # self.filter.get().replace(' ', '').replace('+', '_')  # Depreciated
 
             # Do merging
-            executor = ThreadPoolExecutor(max_workers=int(self.num_threads.get()))
+            executor = ThreadPoolExecutor(
+                max_workers=int(self.num_threads.get()))
             threads = []
             sets = chunks(files, brackets)
-            print ("Sets:", len(sets), "\n")
-            for i,s in enumerate(sets):
+            print("Sets:", len(sets), "\n")
+            for i, s in enumerate(sets):
                 img_list = []
-                for ii,img in enumerate(s):
+                for ii, img in enumerate(s):
                     img_list.append(img.as_posix()+'___'+str(evs[ii]))
 
                 # self.do_merge (blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
-                t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe, align_image_stack_exe)
+                t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder,
+                                    filter_used, i, img_list, folder, luminance_cli_exe, align_image_stack_exe)
                 threads.append(t)
 
             while any(not t.done() for t in threads):
@@ -352,10 +369,10 @@ class HDRBrackets(Frame):
                         print('Exception in thread: %s', ex)
                     num_finished += 1
                 progress = (num_finished/len(threads))*100
-                print ("Progress:", progress)
+                print("Progress:", progress)
                 self.progress['value'] = int(progress)
 
-            print ("Done!!!")
+            print("Done!!!")
             notify_phone(folder)
             for btn in self.buttons_to_disable:
                 btn['state'] = 'normal'
@@ -364,8 +381,8 @@ class HDRBrackets(Frame):
             play_sound("C:/Windows/Media/Speech On.wav")
             self.update()
 
-        threading.Thread(target=real_execute).start()  # Run in a separate thread to keep UI alive
-
+        # Run in a separate thread to keep UI alive
+        threading.Thread(target=real_execute).start()
 
     def quit(self):
         global root
@@ -373,8 +390,8 @@ class HDRBrackets(Frame):
 
 
 def main():
-    print ("This window will report detailed progress of the blender renders.")
-    print ("Use the other window to start the merging process.")
+    print("This window will report detailed progress of the blender renders.")
+    print("Use the other window to start the merging process.")
 
     global root
     root = Tk()
