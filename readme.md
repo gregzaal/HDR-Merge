@@ -44,7 +44,7 @@ Then:
 4. Click *Create HDRs*, and monitor the console window for progress and errors.
 5. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files, while the `jpg` folder contains tonemapped versions of those files.
 
-Note: This tool does not do any alignment or ghost removal, so it's important that you use a steady tripod when shooting.
+Note: This tool does not do any ghost removal, so it's important that you use a steady tripod when shooting.
 
 The intended use here is for creating HDRIs, allowing you to stitch with the JPG files (which load quickly and, being tonemapped, show more dynamic range), and then swap the JPGs out with the EXR files at the end before your final export. If you are using PTGui, you can do this using the included `ptgui_jpg_to_hdr.py` file - just drag your `.pts` project file onto that script and it will replace the JPG paths with EXR ones.
 
