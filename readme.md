@@ -10,6 +10,7 @@ Requires:
 
 * [Blender 2.79](http://download.blender.org/release/Blender2.79/)
 * [Luminance HDR v2.4.0](https://sourceforge.net/projects/qtpfsgui/files/luminance/2.4.0/) (later versions will not work)
+* [Hugin 2021](https://hugin.sourceforge.io/download/)
 
 1. Install the required software above.
 2. [Download](https://github.com/gregzaal/HDR-Merge/archive/master.zip) or [clone](git@github.com:gregzaal/HDR-Merge.git) this repository.
@@ -32,9 +33,11 @@ Running the script for the first time will prompt you to edit `exe_paths.json` t
 {
     "blender_exe": "C:\\Program Files\\Blender 2.79\\blender.exe",
     "luminance_cli_exe": "C:\\Program Files\\LuminanceHDR\\luminance-hdr-cli.exe",
-    "align_image_stack_exe": "C:\\Program Files\\LuminanceHDR\\hugin\\align_image_stack.exe"
+    "align_image_stack_exe": "C:\\Program Files\\Hugin\\bin\\align_image_stack.exe"
 }
 ```
+
+Note: Do not use the `align_image_stack.exe` that comes with LuminanceHDR, as this is a different version which won't work. Only use the one that comes with Hugin itself.
 
 Then:
 
