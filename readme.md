@@ -12,7 +12,7 @@ Requires:
 * [Luminance HDR v2.4.0](https://sourceforge.net/projects/qtpfsgui/files/luminance/2.4.0/) (later versions will not work)
 
 1. Install the required software above.
-2. [Download](https://github.com/gregzaal/HDR-Merge/archive/master.zip) or [clone](git@github.com:gregzaal/HDR-Merge.git) this repository. 
+2. [Download](https://github.com/gregzaal/HDR-Merge/archive/master.zip) or [clone](git@github.com:gregzaal/HDR-Merge.git) this repository.
 3. Run the executable `build/hdr_brackets.exe` (Windows only), **OR** run the `hdr_brackets.py` script using the instructions below.
 
 ### Run From Source (optional)
@@ -26,12 +26,13 @@ You will need:
 
 ## Usage
 
-Running the script for the first time will prompt you to edit `exe_paths.json` to fill in the paths to your `blender.exe` and `luminance-hdr-cli.exe` executable files. It should look something like this (note the double backslashes; you can use forward slashes as well):
+Running the script for the first time will prompt you to edit `exe_paths.json` to fill in the paths to your `blender.exe`, `luminance-hdr-cli.exe` and `align_image_stack.exe` executable files. It should look something like this (note the double backslashes; you can use forward slashes as well):
 
 ```
 {
     "blender_exe": "C:\\Program Files\\Blender 2.79\\blender.exe",
-    "luminance_cli_exe": "C:\\Program Files\\LuminanceHDR\\luminance-hdr-cli.exe"
+    "luminance_cli_exe": "C:\\Program Files\\LuminanceHDR\\luminance-hdr-cli.exe",
+    "luminance_cli_exe": "C:\\Program Files\\LuminanceHDR\\hugin\\align_image_stack.exe"
 }
 ```
 
