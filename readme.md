@@ -32,7 +32,7 @@ Running the script for the first time will prompt you to edit `exe_paths.json` t
 {
     "blender_exe": "C:\\Program Files\\Blender 2.79\\blender.exe",
     "luminance_cli_exe": "C:\\Program Files\\LuminanceHDR\\luminance-hdr-cli.exe",
-    "luminance_cli_exe": "C:\\Program Files\\LuminanceHDR\\hugin\\align_image_stack.exe"
+    "align_image_stack_exe": "C:\\Program Files\\LuminanceHDR\\hugin\\align_image_stack.exe"
 }
 ```
 
