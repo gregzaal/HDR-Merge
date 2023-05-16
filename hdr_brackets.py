@@ -108,11 +108,13 @@ def chunks(l, n):
 def get_exif(filepath: pathlib.Path):
     with filepath.open('rb') as f:
         tags = exifread.process_file(f)
-
     resolution = str(tags["Image ImageWidth"]) + 'x' + \
         str(tags["Image ImageLength"])
     shutter_speed = eval(str(tags["EXIF ExposureTime"]))
-    aperture = eval(str(tags["EXIF FNumber"]))
+    try:
+        aperture = eval(str(tags["EXIF FNumber"]))
+    except ZeroDivisionError:
+        aperture = 0
     iso = int(str(tags["EXIF ISOSpeedRatings"]))
     return {"resolution": resolution, "shutter_speed": shutter_speed, "aperture": aperture, "iso": iso}
 
@@ -123,7 +125,7 @@ def ev_diff(bright_image, dark_image):
     try:
         dr_aperture = log(dark_image['aperture'] /
                           bright_image['aperture'], 1.41421)
-    except ValueError:
+    except (ValueError, ZeroDivisionError):
         # No lens data means aperture is 0, and we can't divide by 0 :)
         dr_aperture = 0
     dr_iso = log(bright_image['iso']/dark_image['iso'], 2)
