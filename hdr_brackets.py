@@ -247,7 +247,7 @@ class HDRBrackets(Frame):
                  exifs, out_folder: pathlib.Path,
                  filter_used, i, img_list, folder: pathlib.Path, luminance_cli_exe,
                  align_image_stack_exe):
-
+            
         exr_folder = out_folder / 'exr'
         jpg_folder = out_folder / 'jpg'
         align_folder = out_folder / 'aligned'
@@ -323,13 +323,14 @@ class HDRBrackets(Frame):
 
     def execute(self):
         def real_execute():
+            folder_start_time = datetime.now() 
             folder = pathlib.Path(self.input_folder.get())
             if not folder.exists():
                 messagebox.showerror(
                     "Folder does not exist", "The input path you have selected does not exist!")
                 return
 
-            print("Starting...")
+            print("Starting [%s]..." % folder_start_time.strftime("%H:%M:%S")) 
             self.btn_execute['text'] = "Busy..."
             self.progress['value'] = 0
 
@@ -400,6 +401,13 @@ class HDRBrackets(Frame):
                 self.progress['value'] = int(progress)
 
             print("Done!!!")
+            folder_end_time = datetime.now() 
+            folder_duration = (folder_end_time - folder_start_time).total_seconds() 
+            print("Total time: %.1f seconds (%.1f minutes)" % (folder_duration, folder_duration/60)) 
+            print("Alignment: %s" % ("Yes" if self.do_align.get() else "No"))
+            print("Total brackets: %d" % brackets + " (%.1f seconds per bracket)" % (folder_duration/brackets))
+            print("Images per bracket: %d" % (len(files)/brackets))
+            print("Threads used: %d" % int(self.num_threads.get()))
             notify_phone(folder)
             for btn in self.buttons_to_disable:
                 btn['state'] = 'normal'
