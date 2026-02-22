@@ -405,8 +405,8 @@ class HDRBrackets(Frame):
             folder_duration = (folder_end_time - folder_start_time).total_seconds() 
             print("Total time: %.1f seconds (%.1f minutes)" % (folder_duration, folder_duration/60)) 
             print("Alignment: %s" % ("Yes" if self.do_align.get() else "No"))
-            print("Total brackets: %d" % brackets + " (%.1f seconds per bracket)" % (folder_duration/brackets))
-            print("Images per bracket: %d" % (len(files)/brackets))
+            print("Images per bracket: %d" % brackets + " (%.1f seconds per bracket)" % (folder_duration/brackets))
+            print("Total brackets processed: %d" % (len(files)/brackets))
             print("Threads used: %d" % int(self.num_threads.get()))
             notify_phone(folder)
             for btn in self.buttons_to_disable:
