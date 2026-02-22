@@ -4,6 +4,7 @@ import json
 import pathlib
 import exifread
 from math import log
+from datetime import datetime
 from tkinter import *
 from tkinter import filedialog, messagebox, ttk
 from concurrent.futures import ThreadPoolExecutor
@@ -26,6 +27,23 @@ def center(win):
     # Add 32 to account for titlebar & borders
     y = (win.winfo_screenheight() // 2) - (height+32 // 2)
     win.geometry('{}x{}+{}+{}'.format(width, height, x, y))
+
+
+def run_subprocess_with_prefix(cmd: list, bracket_id: int, label: str, out_folder: pathlib.Path):
+    """Run a subprocess and save output to a timestamped log file."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = "bracket_%03d_%s_%s.log" % (bracket_id, label, timestamp)
+    log_path = out_folder / log_filename
+    
+    with open(log_path, 'w') as log_file:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        log_file.write("STDOUT:\n")
+        log_file.write(result.stdout)
+        log_file.write("\nSTDERR:\n")
+        log_file.write(result.stderr)
+    
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, cmd)
 
 
 def read_json(fp: pathlib.Path) -> dict:
@@ -241,11 +259,11 @@ class HDRBrackets(Frame):
         jpg_path = jpg_folder / exr_path.with_suffix('.jpg').name
 
         if exr_path.exists():
-            print("Skipping set %d, %s exists" % (i, exr_path))
+            print("Bracket %d: Skipping, %s exists" % (i, exr_path))
             return
 
         if self.do_align.get():
-            print("Aligning", i)
+            print("Bracket %d: Aligning images" % i)
             align_folder.mkdir(parents=True, exist_ok=True)
             actual_img_list = [i.split("___")[0] for i in img_list]
             cmd = [
@@ -264,10 +282,10 @@ class HDRBrackets(Frame):
                     str(j).zfill(4),
                     img_list[j].split('___')[-1]
                 )).as_posix())
-            subprocess.check_call(cmd)
+            run_subprocess_with_prefix(cmd, i, "align", out_folder)
             img_list = new_img_list
 
-        print("Merging", i)
+        print("Bracket %d: Merging" % i)
         cmd = [
             blender_exe,
             '--background',
@@ -279,9 +297,15 @@ class HDRBrackets(Frame):
             exifs[0]['resolution'],
             exr_path.as_posix(),
             filter_used,
+            str(i),  # Bracket ID
         ]
         cmd += img_list
-        subprocess.check_call(cmd)
+        run_subprocess_with_prefix(cmd, i, "blender", out_folder)
+
+        # Delete .blend1 backup file created by Blender
+        blend1_path = exr_path.with_name("bracket_%03d_sample.blend1" % i)
+        if blend1_path.exists():
+            blend1_path.unlink()
 
         cmd = [
             luminance_cli_exe,
@@ -294,7 +318,8 @@ class HDRBrackets(Frame):
             '-o',
             jpg_path.as_posix(),
         ]
-        subprocess.check_call(cmd)
+        run_subprocess_with_prefix(cmd, i, "luminance", out_folder)
+        print("Bracket %d: Complete" % i)
 
     def execute(self):
         def real_execute():
@@ -355,20 +380,20 @@ class HDRBrackets(Frame):
                 # self.do_merge (blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
                 t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder,
                                     filter_used, i, img_list, folder, luminance_cli_exe, align_image_stack_exe)
-                threads.append(t)
+                threads.append((i, t))
 
-            while any(not t.done() for t in threads):
+            while any(not t[1].done() for t in threads):
                 sleep(2)
                 self.update()
                 num_finished = 0
 
-                for tt in threads:
+                for bracket_idx, tt in threads:
                     if not tt.done():
                         continue
                     try:
                         tt.result()
                     except Exception as ex:
-                        print('Exception in thread: %s', ex)
+                        print('Bracket %d: Exception - %s' % (bracket_idx, ex))
                     num_finished += 1
                 progress = (num_finished/len(threads))*100
                 print("Progress:", progress)
