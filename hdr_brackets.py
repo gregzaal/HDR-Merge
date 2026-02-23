@@ -3,6 +3,7 @@ import subprocess
 import json
 import pathlib
 import exifread
+from pathlib import Path
 from math import log
 from datetime import datetime
 from tkinter import *
@@ -17,6 +18,8 @@ if getattr(sys, 'frozen', False):
     SCRIPT_DIR = pathlib.Path(sys.executable).parent  # Built with cx_freeze
 else:
     SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+
+verbose = True
 
 
 def center(win):
@@ -155,6 +158,8 @@ class HDRBrackets(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
         self.master = master
+        self.total_sets_global = 0
+        self.completed_brackets_global = 0
 
         self.initUI()
 
@@ -268,11 +273,15 @@ class HDRBrackets(Frame):
         jpg_path = jpg_folder / exr_path.with_suffix('.jpg').name
 
         if exr_path.exists():
-            print("Bracket %d: Skipping, %s exists" % (i, exr_path))
+            print("Folder %s: Bracket %d: Skipping, %s exists" % (folder.name, i, exr_path.relative_to(folder)))
             return
 
         if self.do_align.get():
-            print("Bracket %d: Aligning images" % i)
+            if verbose:
+                print("Folder %s: Bracket %d: Aligning images %s" % (folder.name, i, [ Path(p.split("___")[0]).name for p in img_list]))
+            else :
+                print("Folder %s: Bracket %d: Aligning images" % (folder.name, i))
+
             align_folder.mkdir(parents=True, exist_ok=True)
             actual_img_list = [i.split("___")[0] for i in img_list]
             cmd = [
@@ -294,7 +303,11 @@ class HDRBrackets(Frame):
             run_subprocess_with_prefix(cmd, i, "align", out_folder)
             img_list = new_img_list
 
-        print("Bracket %d: Merging" % i)
+        if verbose:
+            print("Folder %s: Bracket %d: Merging %s" % (folder.name, i, [ Path(p.split("___")[0]).name for p in img_list]))
+        else:
+            print("Folder %s: Bracket %d: Merging" % (folder.name, i))
+
         cmd = [
             blender_exe,
             '--background',
@@ -328,11 +341,14 @@ class HDRBrackets(Frame):
             jpg_path.as_posix(),
         ]
         run_subprocess_with_prefix(cmd, i, "luminance", out_folder)
-        print("Bracket %d: Complete" % i)
+        if verbose:
+            print("Folder %s: Bracket %d: Complete %s" % (folder.name, i, [ Path(p.split("___")[0]).name for p in img_list]))
+        else:
+            print("Folder %s: Bracket %d: Complete" % (folder.name, i))
 
     def process_folder(self, folder: pathlib.Path, blender_exe: str, luminance_cli_exe: str,
                        align_image_stack_exe: str, merge_blend: pathlib.Path, merge_py: pathlib.Path,
-                       extension: str, do_align: bool) -> tuple:
+                       extension: str, do_align: bool, bracket_offset: int) -> tuple:
         """Process a single folder and return (num_brackets, num_sets, error)."""
         out_folder = folder / "Merged"
         glob = extension
@@ -353,7 +369,10 @@ class HDRBrackets(Frame):
         brackets = len(exifs)
         print("\nFolder: %s" % folder)
         print("Brackets:", brackets)
-        print("Exifs:", exifs)
+        sets = chunks(files, brackets)
+        print("Sets:", len(sets), "\n")
+        # print("Exifs:", json.dumps(exifs, indent=2))         
+        print("Exifs:\n", str(exifs).replace("}, {", "},\n{"))
         evs = [ev_diff({"shutter_speed": 1000000000, "aperture": 0.1,
                        "iso": 1000000000000}, e) for e in exifs]
         evs = [ev-min(evs) for ev in evs]
@@ -364,32 +383,35 @@ class HDRBrackets(Frame):
         executor = ThreadPoolExecutor(
             max_workers=int(self.num_threads.get()))
         threads = []
-        sets = chunks(files, brackets)
-        print("Sets:", len(sets), "\n")
         for i, s in enumerate(sets):
             img_list = []
             for ii, img in enumerate(s):
                 img_list.append(img.as_posix()+'___'+str(evs[ii]))
 
             t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder,
-                                filter_used, i, img_list, folder, luminance_cli_exe, align_image_stack_exe)
-            threads.append((i, t))
+                                filter_used, bracket_offset + i, img_list, folder, luminance_cli_exe, align_image_stack_exe)
+            threads.append((bracket_offset + i, t))
 
+        completed_in_folder = set()
         while any(not t[1].done() for t in threads):
             sleep(2)
             self.update()
-            num_finished = 0
 
             for bracket_idx, tt in threads:
                 if not tt.done():
+                    continue
+                if bracket_idx in completed_in_folder:
                     continue
                 try:
                     tt.result()
                 except Exception as ex:
                     print('Bracket %d: Exception - %s' % (bracket_idx, ex))
-                num_finished += 1
-            progress = (num_finished/len(threads))*100
-            print("Progress:", progress)
+                completed_in_folder.add(bracket_idx)
+                self.completed_brackets_global += 1
+            
+            # Update global progress
+            progress = (self.completed_brackets_global / self.total_sets_global) * 100
+            # print("Progress: %.1f%%" % progress)
             self.progress['value'] = int(progress)
 
         return (brackets, len(sets), None)
@@ -432,28 +454,70 @@ class HDRBrackets(Frame):
                     if parent not in folders_to_process and parent != folder:
                         folders_to_process.append(parent)
                 print("Recursive mode: Found %d subfolders" % len(folders_to_process))
+                print("Subfolders to process: %s" % [str(subfolder.relative_to(folder)) for subfolder in folders_to_process])
             else:
                 folders_to_process.append(folder)
 
+            # First pass: calculate total sets across all folders for progress tracking
+            total_sets_global = 0
+            folder_info = []
+            for proc_folder in folders_to_process:
+                glob = extension
+                if '*' not in glob:
+                    glob = '*%s' % glob
+                files = list(proc_folder.glob(glob))
+                if files:
+                    exifs = []
+                    for f in files:
+                        e = get_exif(f)
+                        if e in exifs:
+                            break
+                        exifs.append(e)
+                    brackets = len(exifs)
+                    if brackets > 0:
+                        sets = len(files) // brackets
+                        total_sets_global += sets
+                        folder_info.append((proc_folder, brackets, sets))
+
+            # Check if any valid folders were found
+            if not folder_info:
+                print("No matching files found in the input folder.")
+                messagebox.showerror(
+                    "No matching files",
+                    "No matching files found in the input folder!\n\n"
+                    "Please check that the folder contains images with the pattern: '%s'" % extension
+                )
+                for btn in self.buttons_to_disable:
+                    btn['state'] = 'normal'
+                self.btn_execute['text'] = "Create HDRs"
+                return
+
+            self.total_sets_global = total_sets_global
+            print("Total sets to process: %d" % total_sets_global)
+            self.completed_brackets_global = 0
+
+            # Second pass: process all folders
+            bracket_offset = 0
             total_brackets = 0
             total_sets = 0
-            for proc_folder in folders_to_process:
+            for proc_folder, brackets, sets in folder_info:
                 brackets, sets, error = self.process_folder(
                     proc_folder, blender_exe, luminance_cli_exe,
                     align_image_stack_exe, merge_blend, merge_py,
-                    extension, do_align)
+                    extension, do_align, bracket_offset)
                 total_brackets += brackets
                 total_sets += sets
+                bracket_offset += sets
                 if error:
-                    print("Error processing %s: %s" % (proc_folder, error))
+                    print("Error processing %s: %s" % (proc_folder , error))
 
             print("Done!!!")
             folder_end_time = datetime.now()
             folder_duration = (folder_end_time - folder_start_time).total_seconds()
             print("Total time: %.1f seconds (%.1f minutes)" % (folder_duration, folder_duration/60))
             print("Alignment: %s" % ("Yes" if do_align else "No"))
-            print("Images per bracket: %d" % total_brackets + " (%.1f seconds per bracket)" % (folder_duration/max(total_brackets, 1)))
-            print("Total brackets processed: %d" % total_sets)
+            print("Images per bracket: %d" % total_brackets)
+            print("Total sets processed: %d" % total_sets)
             print("Threads used: %d" % int(self.num_threads.get()))
             notify_phone(folder)
             for btn in self.buttons_to_disable:
