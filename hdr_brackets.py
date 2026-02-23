@@ -564,8 +564,8 @@ class HDRMergeMaster(Frame):
         self.initUI()
 
     def initUI(self):
-        self.master.title("HDR Brackets")
-        self.master.geometry("600x280")
+        self.master.title("HDR Merge Master 2000.1.2.1.rc1")
+        self.master.geometry("600x225")
         self.pack(fill=BOTH, expand=True)
 
         padding = 8
