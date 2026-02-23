@@ -126,11 +126,16 @@ def get_config() -> dict:
     """Load configuration from config.json, creating it if it doesn't exist."""
     global SCRIPT_DIR
     cf = SCRIPT_DIR / "config.json"
-    
+
     default_config = get_default_config()
     config = {}
     error = ""
     missing_json_error = "You need to configure some paths first. Edit the '%s' file and fill in the paths." % cf
+
+    # Required exe paths (must exist)
+    required_exes = ["blender_exe", "luminance_cli_exe"]
+    # Optional exe paths (can be missing, features will be disabled)
+    optional_exes = ["align_image_stack_exe", "rawtherapee_cli_exe"]
 
     if not cf.exists() or cf.stat().st_size == 0:
         with cf.open("w") as f:
@@ -146,21 +151,32 @@ def get_config() -> dict:
                 for sub_key, sub_value in value.items():
                     if sub_key not in config[key]:
                         config[key][sub_key] = sub_value
-        
-        # Validate exe_paths
+
+        # Validate required exe_paths
         exe_paths = config.get("exe_paths", {})
-        for key, path in exe_paths.items():
+        for key in required_exes:
+            path = exe_paths.get(key, "")
             if not path:
                 error = missing_json_error + " (%s is empty)" % key
                 break
             if not pathlib.Path(path).exists():
                 error = '"%s" in config.json either doesn\'t exist or is an invalid path.' % path
-    
+
+        # Check optional exe_paths and mark as unavailable if missing
+        config["_optional_exes_available"] = {}
+        for key in optional_exes:
+            path = exe_paths.get(key, "")
+            if path and pathlib.Path(path).exists():
+                config["_optional_exes_available"][key] = True
+            else:
+                config["_optional_exes_available"][key] = False
+                print("Warning: %s is not available (%s). Related features will be disabled." % (key, path + " not found" if path else "path not configured"))
+
     if error:
         print(error)
         input("Press enter to exit.")
         sys.exit(0)
-    
+
     return config
 
 
@@ -562,8 +578,6 @@ class HDRMergeMaster(Frame):
             pass
 
         # ========== Input ==========
-        # r1 = Frame(master=self)
-        # initial_label = "Select a folder..."
         if clipboard:  # if a path is copied in clipboard, fill it in automatically
             try:
                 clippath = pathlib.Path(clipboard)
@@ -572,36 +586,6 @@ class HDRMergeMaster(Frame):
                         self.batch_folders.append(str(clippath).replace('\\', '/'))
             except OSError:
                 pass  # Not a valid path.
-
-        # lbl_input = Label(r1, text="Input Folder:")
-        # lbl_input.pack(side=LEFT, padx=(padding, 0))
-
-        # self.input_folder = Entry(r1)
-        # self.input_folder.insert(0, initial_label)
-        # self.input_folder.pack(side=LEFT, fill=X, expand=True, padx=padding)
-        # self.buttons_to_disable.append(self.input_folder)
-
-        # btn_browse = Button(r1, text="Browse", command=self.set_input_folder)
-        # btn_browse.pack(side=RIGHT, padx=(0, padding))
-        # self.buttons_to_disable.append(btn_browse)
-
-        # r1.pack(fill=X, pady=(padding, 0))
-
-        # ========== PP3 Profile File ==========
-        # r_pp3 = Frame(master=self)
-
-        # lbl_pp3 = Label(r_pp3, text="PP3 Profile:")
-        # lbl_pp3.pack(side=LEFT, padx=(padding, 0))
-
-        # self.pp3_file = Entry(r_pp3)
-        # saved_pp3 = self.saved_settings.get("pp3_file", "")
-        # self.pp3_file.insert(0, saved_pp3 if saved_pp3 else "Select a .pp3 file...")
-        # self.pp3_file.pack(side=LEFT, fill=X, expand=True, padx=padding)
-
-        # btn_pp3_browse = Button(r_pp3, text="Browse", command=self.set_pp3_file)
-        # btn_pp3_browse.pack(side=RIGHT, padx=(0, padding))
-
-        # r_pp3.pack(fill=X, pady=(padding, 0))
 
         # ========== Batch Folders ==========
         r_batch = Frame(master=self)
@@ -669,12 +653,13 @@ class HDRMergeMaster(Frame):
         # Pattern frame to hold extension and label
         pattern_frame = Frame(r2)
         pattern_frame.pack(side=LEFT, padx=(padding / 2, 0))
-        
+
         self.extension = Entry(pattern_frame, width=6)
         self.extension.pack(side=TOP, fill=X)
         self.extension.insert(0, self.saved_settings.get("tif_extension", ".tif"))
+        self.extension.bind('<Return>', self.save_extension)
         self.buttons_to_disable.append(self.extension)
-        
+
         self.extension_label = Label(pattern_frame, text="(TIFF)", font=("TkDefaultFont", 8))
         self.extension_label.pack(side=TOP)
 
@@ -683,26 +668,10 @@ class HDRMergeMaster(Frame):
         self.num_threads = Spinbox(r2, from_=1, to=9999999, width=2)
         self.num_threads.delete(0, "end")
         self.num_threads.insert(0, self.saved_settings.get("threads", "6"))
+        self.num_threads.bind('<Return>', self.save_threads)
         self.num_threads.pack(side=LEFT, padx=(padding / 3, 0))
         self.buttons_to_disable.append(self.num_threads)
-
-        self.do_align = BooleanVar()
-        self.do_align.set(self.saved_settings.get("do_align", False))
-        lbl_align = Label(r2, text="Align:")
-        lbl_align.pack(side=LEFT, padx=(padding, 0))
-        self.align = Checkbutton(r2, variable=self.do_align, onvalue=True, offvalue=False)
-        self.align.pack(side=LEFT)
-        self.buttons_to_disable.append(self.align)
-
-        self.do_recursive = BooleanVar()
-        self.do_recursive.set(self.saved_settings.get("do_recursive", False))
-        lbl_recursive = Label(r2, text="Recursive:")
-        lbl_recursive.pack(side=LEFT, padx=(padding, 0))
-        self.recursive = Checkbutton(
-            r2, variable=self.do_recursive, onvalue=True, offvalue=False)
-        self.recursive.pack(side=LEFT)
-        self.buttons_to_disable.append(self.recursive)
-
+        
         self.do_raw = BooleanVar()
         self.do_raw.set(self.saved_settings.get("do_raw", False))
         lbl_raw = Label(r2, text="RAW File:")
@@ -713,8 +682,36 @@ class HDRMergeMaster(Frame):
         self.raw.pack(side=LEFT)
         self.buttons_to_disable.append(self.raw)
         
+        # Disable RAW checkbox if RawTherapee CLI is not available
+        if not CONFIG.get("_optional_exes_available", {}).get("rawtherapee_cli_exe", False):
+            self.raw.config(state="disabled")
+            self.do_raw.set(False)
+
         # Initialize extension field based on saved RAW state
         self.toggle_raw_extension()
+        self.do_align = BooleanVar()
+        self.do_align.set(self.saved_settings.get("do_align", False))
+        lbl_align = Label(r2, text="Align:")
+        lbl_align.pack(side=LEFT, padx=(padding, 0))
+        self.align = Checkbutton(r2, variable=self.do_align, onvalue=True, offvalue=False)
+        self.align.pack(side=LEFT)
+        self.buttons_to_disable.append(self.align)
+        
+        # Disable Align checkbox if align_image_stack is not available
+        if not CONFIG.get("_optional_exes_available", {}).get("align_image_stack_exe", False):
+            self.align.config(state="disabled")
+            self.do_align.set(False)
+
+        self.do_recursive = BooleanVar()
+        self.do_recursive.set(self.saved_settings.get("do_recursive", False))
+        lbl_recursive = Label(r2, text="Recursive:")
+        lbl_recursive.pack(side=LEFT, padx=(padding, 0))
+        self.recursive = Checkbutton(
+            r2, variable=self.do_recursive, onvalue=True, offvalue=False)
+        self.recursive.pack(side=LEFT)
+        self.buttons_to_disable.append(self.recursive)
+
+
 
         self.btn_execute = Button(r2, text='Create HDRs', command=self.execute)
         self.btn_execute.pack(side=RIGHT, fill=X, expand=True, padx=padding)
@@ -814,6 +811,20 @@ class HDRMergeMaster(Frame):
         
         # Update profile dropdown for selected folder
         self.update_profile_dropdown(folder)
+
+    def save_extension(self, event=None):
+        """Save the current extension to config based on RAW/TIFF mode."""
+        extension = self.extension.get()
+        if self.do_raw.get():
+            CONFIG["gui_settings"]["raw_extension"] = extension
+        else:
+            CONFIG["gui_settings"]["tif_extension"] = extension
+        save_config(CONFIG)
+
+    def save_threads(self, event=None):
+        """Save the current thread count to config."""
+        CONFIG["gui_settings"]["threads"] = self.num_threads.get()
+        save_config(CONFIG)
 
     def get_profile_for_folder(self, folder_path):
         """Get the PP3 profile for a folder, auto-matching by folder key or using default."""
@@ -1146,7 +1157,7 @@ class HDRMergeMaster(Frame):
             extension = self.extension.get()
             do_align = self.do_align.get()
             do_raw = self.do_raw.get()
-            
+
             # Save GUI settings to config - update the appropriate extension
             # Update the extension settings based on current RAW state
             if do_raw:
@@ -1165,6 +1176,20 @@ class HDRMergeMaster(Frame):
 
             original_extension = extension  # Keep track of original extension for RAW processing
 
+            # Validate optional features
+            optional_exes_available = CONFIG.get("_optional_exes_available", {})
+            
+            if do_raw and not optional_exes_available.get("rawtherapee_cli_exe", False):
+                messagebox.showerror(
+                    "RawTherapee Not Available",
+                    "RAW processing is enabled but RawTherapee CLI is not configured or not found!\n\n"
+                    "Please configure the RawTherapee CLI path in config.json."
+                )
+                for btn in self.buttons_to_disable:
+                    btn['state'] = 'normal'
+                self.btn_execute['text'] = "Create HDRs"
+                return
+
             # Validate RAW processing settings if enabled
             if do_raw:
                 # Check if we have any profiles configured
@@ -1181,6 +1206,18 @@ class HDRMergeMaster(Frame):
                     return
                 # Change extension to .tif for RAW processing (output from RawTherapee)
                 extension = ".tif"
+
+            # Validate Align feature if enabled
+            if do_align and not optional_exes_available.get("align_image_stack_exe", False):
+                messagebox.showerror(
+                    "Align Image Stack Not Available",
+                    "Align is enabled but align_image_stack is not configured or not found!\n\n"
+                    "Please configure the align_image_stack path in config.json."
+                )
+                for btn in self.buttons_to_disable:
+                    btn['state'] = 'normal'
+                self.btn_execute['text'] = "Create HDRs"
+                return
 
             # Determine folders to process
             folders_to_process = []
