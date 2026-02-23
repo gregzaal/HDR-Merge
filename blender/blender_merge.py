@@ -4,7 +4,7 @@ import pathlib
 import sys
 
 # Example call:
-# blender.exe --background HDR_Merge.blend --factory-startup --python blender_merge.py -- 3456x5184 "C:/foo/bar/Merged/exr/merged_000.exr" ND8_ND400 imgpath1___12 imgpath2___9 imgpath3___6 imgpath4___3 imgpath5___0
+# blender.exe --background HDR_Merge.blend --factory-startup --python blender_merge.py -- 3456x5184 "C:/foo/bar/Merged/exr/merged_000.exr" ND8_ND400 0 imgpath1___12 imgpath2___9 imgpath3___6 imgpath4___3 imgpath5___0
 
 argv = sys.argv
 argv = argv[argv.index("--")+1:]  # get all args after "--"
@@ -12,7 +12,8 @@ argv = argv[argv.index("--")+1:]  # get all args after "--"
 RESOLUTION = [int(d) for d in argv[0].split('x')]
 EXR_OUTFILE = argv[1]
 FILTERS = argv[2]
-IMAGES = sorted([i.split("___") for i in argv[3:]], key=lambda x: float(x[1]))
+BRACKET_ID = int(argv[3])  # Bracket ID for unique filenames
+IMAGES = sorted([i.split("___") for i in argv[4:]], key=lambda x: float(x[1]))
 
 exr_fpath = pathlib.Path(EXR_OUTFILE)
 
@@ -44,7 +45,7 @@ for i, (img_path, ev) in enumerate(IMAGES):
     previous_node = n
 
 bpy.ops.wm.save_as_mainfile(
-    filepath=str(exr_fpath.with_name("bracket_sample.blend")),
+    filepath=str(exr_fpath.with_name("bracket_%03d_sample.blend" % BRACKET_ID)),
     compress=True,
 )
 
@@ -77,6 +78,6 @@ rset.resolution_y = RESOLUTION[1]
 bpy.ops.render.render(write_still=True)  # Render!
 
 bpy.ops.wm.save_as_mainfile(
-    filepath=str(exr_fpath.with_name("bracket_sample.blend")),
+    filepath=str(exr_fpath.with_name("bracket_%03d_sample.blend" % BRACKET_ID)),
     compress=True,
 )
