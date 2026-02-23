@@ -1,4 +1,3 @@
-from sre_parse import Verbose
 import sys
 import subprocess
 import json
