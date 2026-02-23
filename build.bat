@@ -4,7 +4,8 @@ setlocal
 set "PY=py -3"
 set "MAIN_SCRIPT=hdr_brackets.py"
 set "DIST_ROOT=build"
-set "OUT_DIR=%DIST_ROOT%\hdr_brackets.dist"
+set "GENERATED_OUT_DIR=%DIST_ROOT%\hdr_brackets.dist"
+set "OUT_DIR=%DIST_ROOT%\hdr_merge_master.dist"
 set "VERSION=dev"
 
 echo [1/4] Installing build dependencies...
@@ -13,8 +14,8 @@ if errorlevel 1 exit /b 1
 
 echo [2/4] Cleaning previous outputs...
 if exist "%OUT_DIR%" rmdir /s /q "%OUT_DIR%"
+if exist "%GENERATED_OUT_DIR%" rmdir /s /q "%GENERATED_OUT_DIR%"
 if exist "%DIST_ROOT%\hdr_brackets.build" rmdir /s /q "%DIST_ROOT%\hdr_brackets.build"
-if exist "%DIST_ROOT%\hdr_brackets.exe" del /q "%DIST_ROOT%\hdr_brackets.exe"
 
 echo [3/4] Building standalone executable with Nuitka...
 %PY% -m nuitka ^
@@ -25,9 +26,15 @@ echo [3/4] Building standalone executable with Nuitka...
 	--include-data-dir=blender=blender ^
 	--include-data-dir=icons=icons ^
 	--output-dir=%DIST_ROOT% ^
-	--output-filename=hdr_brackets.exe ^
+	--output-filename=hdr_merge_master.exe ^
 	%MAIN_SCRIPT%
 if errorlevel 1 exit /b 1
+
+if exist "%GENERATED_OUT_DIR%" (
+	pushd "%DIST_ROOT%"
+	ren "hdr_brackets.dist" "hdr_merge_master.dist"
+	popd
+)
 
 echo [4/4] Done.
 echo Version: v%VERSION%

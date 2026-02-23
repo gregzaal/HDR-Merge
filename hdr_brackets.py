@@ -124,9 +124,9 @@ def notify_phone(msg="Done"):
         raise RuntimeError("Missing required dependency 'plyer'. Install it with: pip install plyer") from ex
 
     notify_kwargs = {
-        "title": "HDR Brackets",
+        "title": "HDR Merge Master",
         "message": message,
-        "app_name": "HDR Brackets",
+        "app_name": "HDR Merge Master",
         "timeout": 30,
     }
 
@@ -195,7 +195,7 @@ def ev_diff(bright_image, dark_image):
     return dr_shutter + dr_aperture + dr_iso
 
 
-class HDRBrackets(Frame):
+class HDRMergeMaster(Frame):
 
     def __init__(self, master=None):
         Frame.__init__(self, master)
@@ -204,7 +204,7 @@ class HDRBrackets(Frame):
         self.initUI()
 
     def initUI(self):
-        self.master.title(f"HDR Brackets v{__version__}")
+        self.master.title(f"HDR Merge Master v{__version__}")
         self.pack(fill=BOTH, expand=True)
 
         padding = 8
@@ -497,7 +497,7 @@ def main():
         root.iconphoto(True, PhotoImage(file=png_icon.as_posix()))
     else:
         root.iconbitmap(str(SCRIPT_DIR / "icons/icon.ico"))
-    HDRBrackets(root)
+    HDRMergeMaster(root)
     root.mainloop()
 
 

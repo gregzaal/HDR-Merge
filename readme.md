@@ -1,4 +1,4 @@
-# HDR-Merge
+# HDR Merge Master
 
 A script that uses Blender's compositor to reliably merge exposure brackets to 32-bit EXR files in bulk.
 
@@ -15,13 +15,11 @@ Requires:
 * [Hugin 2021](https://hugin.sourceforge.io/download/)
 
 1. Install the required software above.
-2. [Download](https://github.com/gregzaal/HDR-Merge/archive/master.zip) or [clone](git@github.com:gregzaal/HDR-Merge.git) this repository.
-3. Build the executable with `build.bat` (Windows only).
-4. Run `build/hdr_brackets.dist/hdr_brackets.exe`, **OR** run the `hdr_brackets.py` script using the instructions below.
+2. [Download the latest release](https://github.com/gregzaal/HDR-Merge-Master/releases) and run `hdr_merge_master.exe`
 
 ### Run From Source (optional)
 
-This program is a simple python script that can be run straight from the `.py` script if you can't or don't want to use the pre-built executable. It has only been tested on windows, but *should* work on linux/mac too.
+This program is a simple python script that can be run straight from the `.py` script if you can't or don't want to use the pre-built executable. It has only been tested on Windows.
 
 You will need:
 
