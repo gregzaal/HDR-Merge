@@ -1,5 +1,6 @@
 exe_paths.json
 pushover.json
 *.blend?
+/build
 /tmp
 *.pts

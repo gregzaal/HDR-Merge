@@ -7,9 +7,9 @@ import sys
 # blender.exe --background HDR_Merge.blend --factory-startup --python blender_merge.py -- 3456x5184 "C:/foo/bar/Merged/exr/merged_000.exr" ND8_ND400 0 imgpath1___12 imgpath2___9 imgpath3___6 imgpath4___3 imgpath5___0
 
 argv = sys.argv
-argv = argv[argv.index("--")+1:]  # get all args after "--"
+argv = argv[argv.index("--") + 1 :]  # get all args after "--"
 # list where first position is X-res, second position is Y-res
-RESOLUTION = [int(d) for d in argv[0].split('x')]
+RESOLUTION = [int(d) for d in argv[0].split("x")]
 EXR_OUTFILE = argv[1]
 FILTERS = argv[2]
 BRACKET_ID = int(argv[3])  # Bracket ID for unique filenames
@@ -33,7 +33,7 @@ for i, (img_path, ev) in enumerate(IMAGES):
         print("Creating group", i)
         g = nt.nodes.new("CompositorNodeGroup")
         groups.append(g)
-        g.node_tree = bpy.data.node_groups['Merge HDR']
+        g.node_tree = bpy.data.node_groups["Merge HDR"]
         nt.links.new(previous_node.outputs[0], g.inputs[0])
         nt.links.new(n.outputs[0], g.inputs[1])
         if i == 1:
@@ -49,7 +49,7 @@ bpy.ops.wm.save_as_mainfile(
     compress=True,
 )
 
-nt.links.new(groups[-1].outputs[0], nt.nodes['OUT'].inputs[0])
+nt.links.new(groups[-1].outputs[0], nt.nodes["OUT"].inputs[0])
 
 
 def filter_fix(filter_type, node_tree, img_nodes):
@@ -63,9 +63,9 @@ def filter_fix(filter_type, node_tree, img_nodes):
 
 
 if "ND8" in FILTERS:
-    filter_fix('ND8', nt, nodes)
+    filter_fix("ND8", nt, nodes)
 if "ND400" in FILTERS:
-    filter_fix('ND400', nt, nodes)
+    filter_fix("ND400", nt, nodes)
 
 if not exr_fpath.parent.exists():
     exr_fpath.parent.mkdir(parents=True, exist_ok=True)

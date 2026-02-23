@@ -1,8 +1,10 @@
-# HDR-Merge
+# HDR Merge Master
 
 A script that uses Blender's compositor to reliably merge exposure brackets to 32-bit EXR files in bulk.
 
-![screenshot](https://raw.githubusercontent.com/gregzaal/HDR-Merge/master/icons/screenshot.png)
+<p align="center">
+<img width="452" height="118" alt="2026-02-23_14-58-45" src="https://github.com/user-attachments/assets/ff359f04-d101-4eee-9835-e92f94ec9659" />
+</p>
 
 ## Installation
 
@@ -13,17 +15,23 @@ Requires:
 * [Hugin 2021](https://hugin.sourceforge.io/download/)
 
 1. Install the required software above.
-2. [Download](https://github.com/gregzaal/HDR-Merge/archive/master.zip) or [clone](git@github.com:gregzaal/HDR-Merge.git) this repository.
-3. Run the executable `build/hdr_brackets.exe` (Windows only), **OR** run the `hdr_brackets.py` script using the instructions below.
+2. [Download the latest release](https://github.com/gregzaal/HDR-Merge-Master/releases) and run `hdr_merge_master.exe`
 
 ### Run From Source (optional)
 
-This program is a simple python script that can be run straight from the `.py` script if you can't or don't want to use the pre-built executable. It has only been tested on windows, but *should* work on linux/mac too.
+This program is a simple python script that can be run straight from the `.py` script if you can't or don't want to use the pre-built executable. It has only been tested on Windows.
 
 You will need:
 
-* [Python 3.5](https://www.python.org/downloads/release/python-354/)
-* ExifRead python library - install with `pip install exifread`
+* [Python 3.5+](https://www.python.org/downloads/release/python-354/)
+
+Install dependencies with:
+
+`pip install -r requirements.txt`
+
+Run the program:
+
+`python hdr_brackets.py`
 
 ## Usage
 
