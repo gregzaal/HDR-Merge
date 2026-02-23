@@ -497,17 +497,15 @@ class HDRBrackets(Frame):
             self.completed_brackets_global = 0
 
             # Second pass: process all folders
-            bracket_offset = 0
             total_brackets = 0
             total_sets = 0
             for proc_folder, brackets, sets in folder_info:
                 brackets, sets, error = self.process_folder(
                     proc_folder, blender_exe, luminance_cli_exe,
                     align_image_stack_exe, merge_blend, merge_py,
-                    extension, do_align, bracket_offset)
+                    extension, do_align, 0)
                 total_brackets += brackets
                 total_sets += sets
-                bracket_offset += sets
                 if error:
                     print("Error processing %s: %s" % (proc_folder , error))
 
