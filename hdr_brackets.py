@@ -50,7 +50,8 @@ def run_subprocess_with_prefix(cmd: list, bracket_id: int, label: str, out_folde
     """Run a subprocess and save output to a timestamped log file."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_filename = "bracket_%03d_%s_%s.log" % (bracket_id, label, timestamp)
-    log_path = out_folder / log_filename
+    log_path = out_folder / "logs" / log_filename
+    log_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(log_path, "w") as log_file:
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -126,7 +127,7 @@ def notify_phone(msg="Done"):
         "title": "HDR Brackets",
         "message": message,
         "app_name": "HDR Brackets",
-        "timeout": 10,
+        "timeout": 30,
     }
 
     if sys.platform.startswith("win"):
