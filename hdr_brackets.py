@@ -272,7 +272,7 @@ class EditProfileDialog(Toplevel):
     def __init__(self, parent, profile, save_callback):
         Toplevel.__init__(self, parent)
         self.title("Edit Profile")
-        self.geometry("400x200")
+        self.geometry("600x150")
         self.profile = profile
         self.save_callback = save_callback
         
@@ -356,8 +356,9 @@ class PP3ProfileManager(Toplevel):
 
     def __init__(self, parent, config, save_callback):
         Toplevel.__init__(self, parent)
+        self.parent = parent
         self.title("PP3 Profile Manager")
-        self.geometry("500x400")
+        self.geometry("600x250")
         self.config = config
         self.save_callback = save_callback
         self.profiles = config.get("pp3_profiles", [])
@@ -523,8 +524,11 @@ class PP3ProfileManager(Toplevel):
         self.save_callback(self.config)
 
     def close(self):
-        """Close."""
+        """Close and refresh folder-profile mappings."""
         self.destroy()
+        # Refresh folder-profile mappings in the main window
+        if hasattr(self, 'parent') and hasattr(self.parent, 'refresh_folder_profiles'):
+            self.parent.refresh_folder_profiles()
 
 
 class HDRMergeMaster(Frame):
@@ -536,6 +540,7 @@ class HDRMergeMaster(Frame):
         self.completed_sets_global = 0
         self.batch_folders = []
         self.folder_profiles = {}  # Maps folder path to profile name
+        self._selected_folder = None  # Track currently selected folder
 
         # Load saved GUI settings
         self.saved_settings = CONFIG.get("gui_settings", {})
@@ -601,7 +606,7 @@ class HDRMergeMaster(Frame):
         # ========== Batch Folders ==========
         r_batch = Frame(master=self)
 
-        lbl_batch = Label(r_batch, text="Input Folders:")
+        lbl_batch = Label(r_batch, width=10, text="Input Folders:")
         lbl_batch.pack(side=LEFT, fill=Y, padx=(padding, 0))
 
         # Listbox with scrollbar for batch folders
@@ -637,7 +642,7 @@ class HDRMergeMaster(Frame):
         # ========== Profile Selection ==========
         r_profile = Frame(master=self)
 
-        lbl_profile = Label(r_profile, text="PP3 Profile:")
+        lbl_profile = Label(r_profile, width=10, text="PP3 Profile:")
         lbl_profile.pack(side=LEFT, fill=Y, padx=(padding, 0))
 
         # Profile dropdown for selected folder
@@ -797,11 +802,15 @@ class HDRMergeMaster(Frame):
         """Update profile dropdown when a folder is selected in the batch list."""
         selection = self.batch_listbox.curselection()
         if not selection:
+            self._selected_folder = None
             return
         index = selection[0]
         folder = self.batch_folders[index]
         # self.input_folder.delete(0, END)
         # self.input_folder.insert(0, folder)
+        
+        # Store the selected folder for profile dropdown
+        self._selected_folder = folder
         
         # Update profile dropdown for selected folder
         self.update_profile_dropdown(folder)
@@ -856,13 +865,13 @@ class HDRMergeMaster(Frame):
 
     def on_profile_change(self, event=None):
         """Update folder-to-profile mapping when dropdown selection changes."""
-        selection = self.batch_listbox.curselection()
-        if not selection:
+        # Get the folder from the stored selection, not from listbox
+        if not hasattr(self, '_selected_folder') or not self._selected_folder:
             return
-        index = selection[0]
-        folder = self.batch_folders[index]
-        selected_profile = self.profile_var.get()
         
+        folder = self._selected_folder
+        selected_profile = self.profile_var.get()
+
         if selected_profile:
             self.folder_profiles[folder] = selected_profile
         elif folder in self.folder_profiles:
@@ -870,7 +879,22 @@ class HDRMergeMaster(Frame):
 
     def open_profile_manager(self):
         """Open the PP3 Profile Manager dialog."""
-        PP3ProfileManager(self.master, CONFIG, save_config)
+        PP3ProfileManager(self, CONFIG, save_config)
+
+    def refresh_folder_profiles(self):
+        """Refresh folder-to-profile mappings after profiles are modified."""
+        # Clear existing mappings and re-assign based on new profile keys
+        old_mappings = dict(self.folder_profiles)
+        self.folder_profiles.clear()
+        
+        for folder in self.batch_folders:
+            profile = self.get_profile_for_folder(folder)
+            if profile:
+                self.folder_profiles[folder] = profile.get("name")
+        
+        # Update the dropdown if a folder is selected
+        if self._selected_folder:
+            self.update_profile_dropdown(self._selected_folder)
 
     def process_raw_with_rawtherapee(
         self,
