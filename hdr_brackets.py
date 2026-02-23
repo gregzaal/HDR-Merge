@@ -5,7 +5,24 @@ import pathlib
 import exifread
 from math import log
 from datetime import datetime
-from tkinter import *
+from tkinter import (
+    BOTH,
+    END,
+    HORIZONTAL,
+    LEFT,
+    RIGHT,
+    X,
+    BooleanVar,
+    Button,
+    Checkbutton,
+    Entry,
+    Frame,
+    Label,
+    PhotoImage,
+    Spinbox,
+    TclError,
+    Tk,
+)
 from tkinter import filedialog, messagebox, ttk
 from concurrent.futures import ThreadPoolExecutor
 import threading
@@ -409,7 +426,6 @@ class HDRBrackets(Frame):
                 for ii, img in enumerate(s):
                     img_list.append(img.as_posix() + "___" + str(evs[ii]))
 
-                # self.do_merge (blender_exe, merge_blend, merge_py, exifs, out_folder, filter_used, i, img_list, folder, luminance_cli_exe)
                 t = executor.submit(
                     self.do_merge,
                     blender_exe,
@@ -443,7 +459,7 @@ class HDRBrackets(Frame):
                 print("Progress:", progress)
                 self.progress["value"] = int(progress)
 
-            print("Done!!!")
+            print("\nDone!!!\n")
             folder_end_time = datetime.now()
             folder_duration = (folder_end_time - folder_start_time).total_seconds()
             print("Total time: %.1f seconds (%.1f minutes)" % (folder_duration, folder_duration / 60))
@@ -480,7 +496,7 @@ def main():
         root.iconphoto(True, PhotoImage(file=png_icon.as_posix()))
     else:
         root.iconbitmap(str(SCRIPT_DIR / "icons/icon.ico"))
-    app = HDRBrackets(root)
+    HDRBrackets(root)
     root.mainloop()
 
 
