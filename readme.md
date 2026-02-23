@@ -23,9 +23,15 @@ This program is a simple python script that can be run straight from the `.py` s
 
 You will need:
 
-* [Python 3.5](https://www.python.org/downloads/release/python-354/)
-* ExifRead python library - install with `pip install exifread`
-* Notification library: `pip install plyer`
+* [Python 3.5+](https://www.python.org/downloads/release/python-354/)
+
+Install dependencies with:
+
+`pip install -r requirements.txt`
+
+Run the program:
+
+`python hdr_brackets.py`
 
 ## Usage
 
