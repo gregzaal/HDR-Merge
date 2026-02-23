@@ -4,3 +4,4 @@ pushover.json
 /build
 /tmp
 *.pts
+__pycache__

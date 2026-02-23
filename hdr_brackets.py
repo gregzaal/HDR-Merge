@@ -7,11 +7,13 @@ from pathlib import Path
 from math import log
 from datetime import datetime
 from tkinter import (
+    TOP,
     BOTH,
     END,
     HORIZONTAL,
     LEFT,
     RIGHT,
+    Y,
     X,
     BooleanVar,
     Button,
@@ -23,8 +25,14 @@ from tkinter import (
     Spinbox,
     TclError,
     Tk,
+    Listbox,
+    SINGLE,
+    Scrollbar,
+    VERTICAL,
+    filedialog,
+    messagebox,
+    ttk,
 )
-from tkinter import filedialog, messagebox, ttk
 from concurrent.futures import ThreadPoolExecutor
 import threading
 from time import sleep
@@ -205,12 +213,13 @@ class HDRMergeMaster(Frame):
         self.master = master
         self.total_sets_global = 0
         self.completed_sets_global = 0
+        self.batch_folders = []
 
         self.initUI()
 
     def initUI(self):
         self.master.title("HDR Brackets")
-        self.master.geometry("600x100")
+        self.master.geometry("600x175")
         self.pack(fill=BOTH, expand=True)
 
         padding = 8
@@ -223,29 +232,69 @@ class HDRMergeMaster(Frame):
             pass
 
         # ========== Input ==========
-        r1 = Frame(master=self)
-        initial_label = "Select a folder..."
+        # r1 = Frame(master=self)
+        # initial_label = "Select a folder..."
         if clipboard:  # if a path is copied in clipboard, fill it in automatically
             try:
                 clippath = pathlib.Path(clipboard)
                 if clippath.exists():
-                    initial_label = clipboard
+                    if clippath.is_dir():                        
+                        self.batch_folders.append(str(clippath).replace('\\', '/'))
             except OSError:
                 pass  # Not a valid path.
 
-        lbl_input = Label(r1, text="Input Folder:")
-        lbl_input.pack(side=LEFT, padx=(padding, 0))
+        # lbl_input = Label(r1, text="Input Folder:")
+        # lbl_input.pack(side=LEFT, padx=(padding, 0))
 
-        self.input_folder = Entry(r1)
-        self.input_folder.insert(0, initial_label)
-        self.input_folder.pack(side=LEFT, fill=X, expand=True, padx=padding)
-        self.buttons_to_disable.append(self.input_folder)
+        # self.input_folder = Entry(r1)
+        # self.input_folder.insert(0, initial_label)
+        # self.input_folder.pack(side=LEFT, fill=X, expand=True, padx=padding)
+        # self.buttons_to_disable.append(self.input_folder)
 
-        btn_browse = Button(r1, text="Browse", command=self.set_input_folder)
-        btn_browse.pack(side=RIGHT, padx=(0, padding))
-        self.buttons_to_disable.append(btn_browse)
+        # btn_browse = Button(r1, text="Browse", command=self.set_input_folder)
+        # btn_browse.pack(side=RIGHT, padx=(0, padding))
+        # self.buttons_to_disable.append(btn_browse)
 
-        r1.pack(fill=X, pady=(padding, 0))
+        # r1.pack(fill=X, pady=(padding, 0))
+
+        # ========== Batch Folders ==========
+        r_batch = Frame(master=self)
+
+        lbl_batch = Label(r_batch, text="Input Folders:")
+        lbl_batch.pack(side=LEFT, fill=Y, padx=(padding, 0))
+
+        # Listbox with scrollbar for batch folders
+        batch_frame = Frame(r_batch)
+        batch_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=padding)
+
+        self.batch_listbox = Listbox(batch_frame, height=4, selectmode=SINGLE)
+        self.batch_listbox.pack(side=LEFT, fill=BOTH, expand=True)
+        self.batch_listbox.bind('<<ListboxSelect>>', self.on_batch_select)
+
+        batch_scrollbar = Scrollbar(batch_frame, orient=VERTICAL)
+        batch_scrollbar.pack(side=RIGHT, fill=BOTH)
+        self.batch_listbox.config(yscrollcommand=batch_scrollbar.set)
+        batch_scrollbar.config(command=self.batch_listbox.yview)
+        
+        self.update_batch_display()
+
+        # Batch buttons (stacked vertically)
+        btn_batch_frame = Frame(r_batch)
+        btn_batch_frame.pack(side=LEFT, padx=(padding/2, padding,))
+
+        btn_add = Button(btn_batch_frame, text="Add", command=self.add_to_batch, width=8)
+        btn_add.pack(side=TOP, pady=(0, 2))
+
+        btn_remove = Button(btn_batch_frame, text="Remove", command=self.remove_from_batch, width=8)
+        btn_remove.pack(side=TOP, pady=2)
+
+        btn_clear = Button(btn_batch_frame, text="Clear All", command=self.clear_batch, width=8)
+        btn_clear.pack(side=TOP, fill=Y, pady=(2, 0))
+
+        r_batch.pack(fill=BOTH, pady=(padding, 0))
+
+        # ========== Options =========
+
         r2 = Frame(master=self)
 
         lbl_pattern = Label(r2, text="Matching Pattern:")
@@ -299,6 +348,51 @@ class HDRMergeMaster(Frame):
             self.btn_execute["text"] = "Create HDRs"
             self.btn_execute["command"] = self.execute
             self.progress["value"] = 0
+
+    def update_batch_display(self):
+        """Refresh the batch listbox display."""
+        self.batch_listbox.delete(0, END)
+        for folder in self.batch_folders:
+            self.batch_listbox.insert(END, folder)
+
+    def add_to_batch(self):
+        """Show file browser and add selected folder to batch list."""
+        path = filedialog.askdirectory()
+        if not path:
+            return
+        if path in self.batch_folders:
+            messagebox.showinfo("Already Added", "This folder is already in the batch list.")
+            return
+        self.batch_folders.append(path)
+        self.update_batch_display()
+
+    def remove_from_batch(self):
+        """Remove selected folder from batch list."""
+        selection = self.batch_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a folder to remove.")
+            return
+        index = selection[0]
+        del self.batch_folders[index]
+        self.update_batch_display()
+
+    def clear_batch(self):
+        """Remove all folders from batch list."""
+        if not self.batch_folders:
+            return
+        if messagebox.askyesno("Clear Batch", "Remove all folders from the batch list?"):
+            self.batch_folders.clear()
+            self.update_batch_display()
+
+    def on_batch_select(self, event=None):
+        """Update input folder when a folder is selected in the batch list."""
+        selection = self.batch_listbox.curselection()
+        if not selection:
+            return
+        index = selection[0]
+        folder = self.batch_folders[index]
+        # self.input_folder.delete(0, END)
+        # self.input_folder.insert(0, folder)
 
     def do_merge(
         self,
@@ -453,17 +547,7 @@ class HDRMergeMaster(Frame):
     def execute(self):
         def real_execute():
             folder_start_time = datetime.now()
-            folder = pathlib.Path(self.input_folder.get())
-            if not folder.exists():
-                messagebox.showerror("Folder does not exist", "The input path you have selected does not exist!")
-                return
-
-            print("Starting [%s]..." % folder_start_time.strftime("%H:%M:%S"))
-            self.btn_execute["text"] = "Busy..."
-            self.progress["value"] = 0
-
-            for btn in self.buttons_to_disable:
-                btn["state"] = "disabled"
+            folder = None
 
             global EXE_PATHS
             global SCRIPT_DIR
@@ -477,19 +561,57 @@ class HDRMergeMaster(Frame):
 
             # Determine folders to process
             folders_to_process = []
-            if self.do_recursive.get():
-                # Find all subfolders containing matching files
-                glob = extension
-                if '*' not in glob:
-                    glob = '*%s' % glob
-                for f in folder.rglob(glob):
-                    parent = f.parent
-                    if parent not in folders_to_process and parent != folder:
-                        folders_to_process.append(parent)
-                print("Recursive mode: Found %d subfolders" % len(folders_to_process))
-                print("Subfolders to process: %s" % [str(subfolder.relative_to(folder)) for subfolder in folders_to_process])
+            do_recursive = self.do_recursive.get()
+
+            if self.batch_folders:
+                # Process all folders in batch list
+                for batch_folder_path in self.batch_folders:
+                    batch_folder = pathlib.Path(batch_folder_path)
+                    if not batch_folder.exists():
+                        print("Warning: Batch folder does not exist: %s" % batch_folder_path)
+                        continue
+                    if do_recursive:
+                        # Find all subfolders containing matching files
+                        glob = extension
+                        if '*' not in glob:
+                            glob = '*%s' % glob
+                        for f in batch_folder.rglob(glob):
+                            parent = f.parent
+                            if parent not in folders_to_process and parent != batch_folder:
+                                folders_to_process.append(parent)
+                        print("Batch folder '%s' (recursive): Found %d subfolders" % (batch_folder_path, len([p for p in folders_to_process if str(p).startswith(str(batch_folder))])))
+                    else:
+                        folders_to_process.append(batch_folder)
+                print("Batch mode: Processing %d folders" % len(folders_to_process))
+                for f in folders_to_process:
+                    print("  - %s" % f)
             else:
-                folders_to_process.append(folder)
+                folder = pathlib.Path(self.input_folder.get())
+                if not folder.exists():
+                    messagebox.showerror("Folder does not exist", "The input path you have selected does not exist!")
+                    return
+
+                # Determine folders to process
+                if do_recursive:
+                    # Find all subfolders containing matching files
+                    glob = extension
+                    if '*' not in glob:
+                        glob = '*%s' % glob
+                    for f in folder.rglob(glob):
+                        parent = f.parent
+                        if parent not in folders_to_process and parent != folder:
+                            folders_to_process.append(parent)
+                    print("Recursive mode: Found %d subfolders" % len(folders_to_process))
+                    print("Subfolders to process: %s" % [str(subfolder.relative_to(folder)) for subfolder in folders_to_process])
+                else:
+                    folders_to_process.append(folder)
+
+            print("Starting [%s]..." % folder_start_time.strftime("%H:%M:%S"))
+            self.btn_execute["text"] = "Busy..."
+            self.progress["value"] = 0
+
+            for btn in self.buttons_to_disable:
+                btn["state"] = "disabled"
 
             # First pass: calculate total sets across all folders for progress tracking
             total_sets_global = 0
@@ -515,11 +637,18 @@ class HDRMergeMaster(Frame):
             # Check if any valid folders were found
             if not folder_info:
                 print("No matching files found in the input folder.")
-                messagebox.showerror(
-                    "No matching files",
-                    "No matching files found in the input folder!\n\n"
-                    "Please check that the folder contains images with the pattern: '%s'" % extension
-                )
+                if self.batch_folders:
+                    messagebox.showerror(
+                        "No matching files",
+                        "No matching files found in any of the batch folders!\n\n"
+                        "Please check that the folders contain images with the pattern: '%s'" % extension
+                    )
+                else:
+                    messagebox.showerror(
+                        "No matching files",
+                        "No matching files found in the input folder!\n\n"
+                        "Please check that the folder contains images with the pattern: '%s'" % extension
+                    )
                 for btn in self.buttons_to_disable:
                     btn['state'] = 'normal'
                 self.btn_execute['text'] = "Create HDRs"
