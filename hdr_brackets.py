@@ -13,6 +13,8 @@ from time import sleep
 import http.client
 import urllib
 
+__version__ = "1.2.0"
+
 if getattr(sys, "frozen", False):
     SCRIPT_DIR = pathlib.Path(sys.executable).parent  # Built with cx_freeze
 else:
@@ -170,7 +172,7 @@ class HDRBrackets(Frame):
         self.initUI()
 
     def initUI(self):
-        self.master.title("HDR Brackets")
+        self.master.title(f"HDR Brackets v{__version__}")
         self.pack(fill=BOTH, expand=True)
 
         padding = 8
