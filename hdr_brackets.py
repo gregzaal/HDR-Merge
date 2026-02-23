@@ -32,6 +32,8 @@ from tkinter import (
     filedialog,
     messagebox,
     ttk,
+    StringVar,
+    Toplevel,
 )
 from concurrent.futures import ThreadPoolExecutor
 import threading
@@ -115,7 +117,8 @@ def get_default_config() -> dict:
             "do_recursive": False,
             "do_raw": False,
             "pp3_file": ""
-        }
+        },
+        "pp3_profiles": []
     }
 
 
@@ -263,6 +266,267 @@ def ev_diff(bright_image, dark_image):
     return dr_shutter + dr_aperture + dr_iso
 
 
+class EditProfileDialog(Toplevel):
+    """Dialog window for editing a single PP3 profile."""
+
+    def __init__(self, parent, profile, save_callback):
+        Toplevel.__init__(self, parent)
+        self.title("Edit Profile")
+        self.geometry("400x200")
+        self.profile = profile
+        self.save_callback = save_callback
+        
+        self.initUI()
+        center(self)
+        self.transient(parent)
+        self.grab_set()
+
+    def initUI(self):
+        padding = 8
+        
+        # Profile name
+        name_frame = Frame(self)
+        name_frame.pack(fill=X, padx=padding, pady=(padding, 4))
+        
+        Label(name_frame, text="Profile Name:", width=15, anchor='w').pack(side=LEFT)
+        self.profile_name = Entry(name_frame)
+        self.profile_name.pack(side=LEFT, fill=X, expand=True)
+        self.profile_name.insert(0, self.profile.get("name", ""))
+        self.profile_name.bind('<Return>', lambda e: self.save_and_close())
+        
+        # Profile path
+        path_frame = Frame(self)
+        path_frame.pack(fill=X, padx=padding, pady=4)
+        
+        Label(path_frame, text="Profile Path:", width=15, anchor='w').pack(side=LEFT)
+        self.profile_path = Entry(path_frame)
+        self.profile_path.pack(side=LEFT, fill=X, expand=True)
+        self.profile_path.insert(0, self.profile.get("path", ""))
+        
+        btn_browse = Button(path_frame, text="Browse", command=self.browse_profile, width=8)
+        btn_browse.pack(side=RIGHT, padx=(4, 0))
+        
+        # Folder key
+        key_frame = Frame(self)
+        key_frame.pack(fill=X, padx=padding, pady=4)
+        
+        Label(key_frame, text="Folder Key:", width=15, anchor='w').pack(side=LEFT)
+        self.folder_key = Entry(key_frame)
+        self.folder_key.pack(side=LEFT, fill=X, expand=True)
+        self.folder_key.insert(0, self.profile.get("folder_key", ""))
+        self.folder_key.bind('<Return>', lambda e: self.save_and_close())
+        
+        Label(key_frame, text="(auto-match)", fg="gray").pack(side=LEFT, padx=(4, 0))
+        
+        # Button frame
+        btn_frame = Frame(self)
+        btn_frame.pack(fill=X, padx=padding, pady=(padding, 0))
+        
+        btn_save = Button(btn_frame, text="Save", command=self.save_and_close, width=10)
+        btn_save.pack(side=RIGHT, padx=(4, 0))
+        
+        btn_cancel = Button(btn_frame, text="Cancel", command=self.destroy, width=10)
+        btn_cancel.pack(side=RIGHT)
+
+    def browse_profile(self):
+        """Browse for profile path."""
+        path = filedialog.askopenfilename(
+            title="Select PP3 Profile",
+            filetypes=[("PP3 files", "*.pp3"), ("All files", "*.*")]
+        )
+        if path:
+            self.profile_path.delete(0, END)
+            self.profile_path.insert(0, path)
+            # Auto-update name if empty
+            if not self.profile_name.get():
+                self.profile_name.delete(0, END)
+                self.profile_name.insert(0, pathlib.Path(path).stem)
+
+    def save_and_close(self):
+        """Save changes and close."""
+        self.profile["name"] = self.profile_name.get()
+        self.profile["path"] = self.profile_path.get()
+        self.profile["folder_key"] = self.folder_key.get()
+        self.save_callback()
+        self.destroy()
+
+
+class PP3ProfileManager(Toplevel):
+    """Dialog window for managing PP3 profiles."""
+
+    def __init__(self, parent, config, save_callback):
+        Toplevel.__init__(self, parent)
+        self.title("PP3 Profile Manager")
+        self.geometry("500x400")
+        self.config = config
+        self.save_callback = save_callback
+        self.profiles = config.get("pp3_profiles", [])
+
+        self.initUI()
+        center(self)
+        self.transient(parent)
+        self.grab_set()
+
+    def initUI(self):
+        padding = 8
+
+        # Profile list section
+        list_frame = Frame(self)
+        list_frame.pack(fill=BOTH, expand=True, padx=padding, pady=padding)
+
+        # Listbox with scrollbar
+        listbox_frame = Frame(list_frame)
+        listbox_frame.pack(side=LEFT, fill=BOTH, expand=True)
+
+        self.profile_listbox = Listbox(listbox_frame, height=10, selectmode=SINGLE)
+        self.profile_listbox.pack(side=LEFT, fill=BOTH, expand=True)
+
+        scrollbar = Scrollbar(listbox_frame, orient=VERTICAL)
+        scrollbar.pack(side=RIGHT, fill=BOTH)
+        self.profile_listbox.config(yscrollcommand=scrollbar.set)
+        scrollbar.config(command=self.profile_listbox.yview)
+
+        self.update_profile_display()
+
+        # Buttons frame
+        btn_frame = Frame(list_frame)
+        btn_frame.pack(side=RIGHT, padx=(padding, 0))
+
+        btn_add = Button(btn_frame, text="Add", command=self.add_profile, width=10)
+        btn_add.pack(side=TOP, pady=(0, 4))
+
+        btn_remove = Button(btn_frame, text="Remove", command=self.remove_profile, width=10)
+        btn_remove.pack(side=TOP, pady=(0, 4))
+
+        btn_clear = Button(btn_frame, text="Clear All", command=self.clear_profiles, width=10)
+        btn_clear.pack(side=TOP, pady=(0, 4))
+
+        btn_set_default = Button(btn_frame, text="Set Default", command=self.set_default, width=10)
+        btn_set_default.pack(side=TOP)
+
+        btn_edit = Button(btn_frame, text="Edit Profile", command=self.edit_profile, width=10)
+        btn_edit.pack(side=TOP, pady=(4, 0))
+
+        # Close button
+        btn_close = Button(self, text="Close", command=self.close)
+        btn_close.pack(side=RIGHT, padx=padding, pady=(0, padding))
+
+    def update_profile_display(self):
+        """Refresh the profile listbox display."""
+        self.profile_listbox.delete(0, END)
+        for profile in self.profiles:
+            default_marker = " [DEFAULT]" if profile.get("default", False) else ""
+            key_info = " (%s)" % profile.get("folder_key", "") if profile.get("folder_key") else ""
+            display_name = "%s%s%s" % (profile.get("name", "Unnamed"), default_marker, key_info)
+            self.profile_listbox.insert(END, display_name)
+
+    def edit_profile(self):
+        """Open edit dialog for selected profile."""
+        selection = self.profile_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a profile to edit.")
+            return
+        
+        index = selection[0]
+        profile = self.profiles[index]
+        
+        # Open edit dialog with callback to update display and save
+        def on_save():
+            self.save_profiles()
+            self.update_profile_display()
+        
+        EditProfileDialog(self, profile, on_save)
+
+    def add_profile(self):
+        """Add a new profile."""
+        path = filedialog.askopenfilename(
+            title="Select PP3 Profile",
+            filetypes=[("PP3 files", "*.pp3"), ("All files", "*.*")]
+        )
+        if not path:
+            return
+
+        # Generate name from filename
+        name = pathlib.Path(path).stem
+
+        # Check if profile with same path already exists
+        for profile in self.profiles:
+            if profile.get("path") == path:
+                messagebox.showinfo("Already Exists", "This profile is already in the list.")
+                return
+
+        new_profile = {
+            "name": name,
+            "path": path,
+            "folder_key": "",
+            "default": len(self.profiles) == 0  # First profile is default
+        }
+        self.profiles.append(new_profile)
+        self.update_profile_display()
+        self.save_profiles()
+
+    def remove_profile(self):
+        """Remove selected profile."""
+        selection = self.profile_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a profile to remove.")
+            return
+
+        index = selection[0]
+        profile = self.profiles[index]
+
+        if profile.get("default", False):
+            if not messagebox.askyesno("Confirm Remove",
+                "This is the default profile. Removing it will set another profile as default. Continue?"):
+                return
+
+        del self.profiles[index]
+
+        # If we removed the default, set the first remaining as default
+        if self.profiles:
+            self.profiles[0]["default"] = True
+
+        self.update_profile_display()
+        self.save_profiles()
+
+    def clear_profiles(self):
+        """Remove all profiles."""
+        if not self.profiles:
+            return
+        if messagebox.askyesno("Clear All", "Remove all PP3 profiles?"):
+            self.profiles.clear()
+            self.update_profile_display()
+            self.save_profiles()
+
+    def set_default(self):
+        """Set selected profile as default."""
+        selection = self.profile_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a profile to set as default.")
+            return
+
+        index = selection[0]
+
+        # Clear all defaults
+        for profile in self.profiles:
+            profile["default"] = False
+
+        # Set selected as default
+        self.profiles[index]["default"] = True
+
+        self.update_profile_display()
+        self.save_profiles()
+
+    def save_profiles(self):
+        """Save profiles to config."""
+        self.config["pp3_profiles"] = self.profiles
+        self.save_callback(self.config)
+
+    def close(self):
+        """Close."""
+        self.destroy()
+
+
 class HDRMergeMaster(Frame):
 
     def __init__(self, master=None):
@@ -271,7 +535,8 @@ class HDRMergeMaster(Frame):
         self.total_sets_global = 0
         self.completed_sets_global = 0
         self.batch_folders = []
-        
+        self.folder_profiles = {}  # Maps folder path to profile name
+
         # Load saved GUI settings
         self.saved_settings = CONFIG.get("gui_settings", {})
 
@@ -279,7 +544,7 @@ class HDRMergeMaster(Frame):
 
     def initUI(self):
         self.master.title("HDR Brackets")
-        self.master.geometry("600x210")
+        self.master.geometry("600x280")
         self.pack(fill=BOTH, expand=True)
 
         padding = 8
@@ -318,20 +583,20 @@ class HDRMergeMaster(Frame):
         # r1.pack(fill=X, pady=(padding, 0))
 
         # ========== PP3 Profile File ==========
-        r_pp3 = Frame(master=self)
+        # r_pp3 = Frame(master=self)
 
-        lbl_pp3 = Label(r_pp3, text="PP3 Profile:")
-        lbl_pp3.pack(side=LEFT, padx=(padding, 0))
+        # lbl_pp3 = Label(r_pp3, text="PP3 Profile:")
+        # lbl_pp3.pack(side=LEFT, padx=(padding, 0))
 
-        self.pp3_file = Entry(r_pp3)
-        saved_pp3 = self.saved_settings.get("pp3_file", "")
-        self.pp3_file.insert(0, saved_pp3 if saved_pp3 else "Select a .pp3 file...")
-        self.pp3_file.pack(side=LEFT, fill=X, expand=True, padx=padding)
+        # self.pp3_file = Entry(r_pp3)
+        # saved_pp3 = self.saved_settings.get("pp3_file", "")
+        # self.pp3_file.insert(0, saved_pp3 if saved_pp3 else "Select a .pp3 file...")
+        # self.pp3_file.pack(side=LEFT, fill=X, expand=True, padx=padding)
 
-        btn_pp3_browse = Button(r_pp3, text="Browse", command=self.set_pp3_file)
-        btn_pp3_browse.pack(side=RIGHT, padx=(0, padding))
+        # btn_pp3_browse = Button(r_pp3, text="Browse", command=self.set_pp3_file)
+        # btn_pp3_browse.pack(side=RIGHT, padx=(0, padding))
 
-        r_pp3.pack(fill=X, pady=(padding, 0))
+        # r_pp3.pack(fill=X, pady=(padding, 0))
 
         # ========== Batch Folders ==========
         r_batch = Frame(master=self)
@@ -368,6 +633,26 @@ class HDRMergeMaster(Frame):
         btn_clear.pack(side=TOP, fill=Y, pady=(2, 0))
 
         r_batch.pack(fill=BOTH, pady=(padding, 0))
+
+        # ========== Profile Selection ==========
+        r_profile = Frame(master=self)
+
+        lbl_profile = Label(r_profile, text="PP3 Profile:")
+        lbl_profile.pack(side=LEFT, fill=Y, padx=(padding, 0))
+
+        # Profile dropdown for selected folder
+        profile_frame = Frame(r_profile)
+        profile_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=padding)
+
+        self.profile_var = StringVar()
+        self.profile_dropdown = ttk.Combobox(profile_frame, textvariable=self.profile_var, state="readonly")
+        self.profile_dropdown.pack(side=LEFT, fill=X, expand=True)
+        self.profile_dropdown.bind('<<ComboboxSelected>>', self.on_profile_change)
+
+        btn_manage_profiles = Button(r_profile, text="Manage Profiles...", command=self.open_profile_manager)
+        btn_manage_profiles.pack(side=RIGHT, padx=(0, padding))
+
+        r_profile.pack(fill=X, pady=(padding, 0))
 
         # ========== Options =========
 
@@ -485,6 +770,10 @@ class HDRMergeMaster(Frame):
             return
         self.batch_folders.append(path)
         self.update_batch_display()
+        # Auto-assign profile for new folder
+        profile = self.get_profile_for_folder(path)
+        if profile:
+            self.folder_profiles[path] = profile.get("name")
 
     def remove_from_batch(self):
         """Remove selected folder from batch list."""
@@ -505,7 +794,7 @@ class HDRMergeMaster(Frame):
             self.update_batch_display()
 
     def on_batch_select(self, event=None):
-        """Update input folder when a folder is selected in the batch list."""
+        """Update profile dropdown when a folder is selected in the batch list."""
         selection = self.batch_listbox.curselection()
         if not selection:
             return
@@ -513,6 +802,75 @@ class HDRMergeMaster(Frame):
         folder = self.batch_folders[index]
         # self.input_folder.delete(0, END)
         # self.input_folder.insert(0, folder)
+        
+        # Update profile dropdown for selected folder
+        self.update_profile_dropdown(folder)
+
+    def get_profile_for_folder(self, folder_path):
+        """Get the PP3 profile for a folder, auto-matching by folder key or using default."""
+        profiles = CONFIG.get("pp3_profiles", [])
+        if not profiles:
+            return None
+        
+        folder_name = pathlib.Path(folder_path).name.lower()
+        
+        # First check if folder has a manually assigned profile
+        if folder_path in self.folder_profiles:
+            profile_name = self.folder_profiles[folder_path]
+            for profile in profiles:
+                if profile.get("name") == profile_name:
+                    return profile
+        
+        # Then try to auto-match by folder key
+        for profile in profiles:
+            folder_key = profile.get("folder_key", "").lower()
+            if folder_key and folder_key in folder_name:
+                return profile
+        
+        # Fall back to default profile
+        for profile in profiles:
+            if profile.get("default", False):
+                return profile
+        
+        # If no default, return first profile
+        return profiles[0] if profiles else None
+
+    def update_profile_dropdown(self, folder_path=None):
+        """Update the profile dropdown with available profiles and current selection."""
+        profiles = CONFIG.get("pp3_profiles", [])
+        profile_names = [p.get("name", "Unnamed") for p in profiles]
+        self.profile_dropdown['values'] = profile_names
+        
+        if folder_path and folder_path in self.folder_profiles:
+            self.profile_var.set(self.folder_profiles[folder_path])
+        elif folder_path:
+            # Auto-assign profile for new folder
+            profile = self.get_profile_for_folder(folder_path)
+            if profile:
+                self.folder_profiles[folder_path] = profile.get("name")
+                self.profile_var.set(profile.get("name"))
+            else:
+                self.profile_var.set("")
+        else:
+            self.profile_var.set("")
+
+    def on_profile_change(self, event=None):
+        """Update folder-to-profile mapping when dropdown selection changes."""
+        selection = self.batch_listbox.curselection()
+        if not selection:
+            return
+        index = selection[0]
+        folder = self.batch_folders[index]
+        selected_profile = self.profile_var.get()
+        
+        if selected_profile:
+            self.folder_profiles[folder] = selected_profile
+        elif folder in self.folder_profiles:
+            del self.folder_profiles[folder]
+
+    def open_profile_manager(self):
+        """Open the PP3 Profile Manager dialog."""
+        PP3ProfileManager(self.master, CONFIG, save_config)
 
     def process_raw_with_rawtherapee(
         self,
@@ -764,11 +1122,8 @@ class HDRMergeMaster(Frame):
             extension = self.extension.get()
             do_align = self.do_align.get()
             do_raw = self.do_raw.get()
-            pp3_file = self.pp3_file.get()
             
             # Save GUI settings to config - update the appropriate extension
-            pp3_value = pp3_file if pp3_file and pathlib.Path(pp3_file).exists() else ""
-            
             # Update the extension settings based on current RAW state
             if do_raw:
                 CONFIG["gui_settings"]["raw_extension"] = extension
@@ -776,24 +1131,25 @@ class HDRMergeMaster(Frame):
             else:
                 CONFIG["gui_settings"]["raw_extension"] = self.saved_settings.get("raw_extension", ".dng")
                 CONFIG["gui_settings"]["tif_extension"] = extension
-            
+
             CONFIG["gui_settings"]["threads"] = self.num_threads.get()
             CONFIG["gui_settings"]["do_align"] = do_align
             CONFIG["gui_settings"]["do_recursive"] = self.do_recursive.get()
             CONFIG["gui_settings"]["do_raw"] = do_raw
-            CONFIG["gui_settings"]["pp3_file"] = pp3_value
-            
+
             save_config(CONFIG)
-            
+
             original_extension = extension  # Keep track of original extension for RAW processing
 
             # Validate RAW processing settings if enabled
             if do_raw:
-                if not pp3_file or not pathlib.Path(pp3_file).exists():
+                # Check if we have any profiles configured
+                profiles = CONFIG.get("pp3_profiles", [])
+                if not profiles:
                     messagebox.showerror(
                         "PP3 Profile Required",
-                        "RAW processing is enabled but no valid PP3 profile file is selected!\n\n"
-                        "Please select a valid .pp3 profile file."
+                        "RAW processing is enabled but no PP3 profiles are configured!\n\n"
+                        "Please add at least one PP3 profile using 'Manage Profiles...'."
                     )
                     for btn in self.buttons_to_disable:
                         btn['state'] = 'normal'
@@ -936,11 +1292,15 @@ class HDRMergeMaster(Frame):
             with ThreadPoolExecutor(max_workers=int(self.num_threads.get())) as executor:
                 # Submit all folder tasks
                 for proc_folder, brackets, sets in folder_info:
+                    # Get folder-specific PP3 profile
+                    profile = self.get_profile_for_folder(str(proc_folder))
+                    folder_pp3_file = profile.get("path", "") if profile else ""
+                    
                     brackets, sets, threads, error = self.process_folder(
                         proc_folder, blender_exe, luminance_cli_exe,
                         align_image_stack_exe, merge_blend, merge_py,
                         original_extension, do_align, do_raw, rawtherapee_cli_exe,
-                        pp3_file, executor)
+                        folder_pp3_file, executor)
                     bracket_list.append(brackets)
                     total_sets += sets
                     all_threads.extend(threads)
