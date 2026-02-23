@@ -10,8 +10,6 @@ from tkinter import filedialog, messagebox, ttk
 from concurrent.futures import ThreadPoolExecutor
 import threading
 from time import sleep
-import http.client
-import urllib
 
 __version__ = "1.2.0"
 
@@ -100,25 +98,41 @@ def play_sound(sf: str):
 
 
 def notify_phone(msg="Done"):
-    pushover_cfg_f = SCRIPT_DIR / "pushover.json"
-    if not pushover_cfg_f.exists():
-        return
+    message = str(msg)
+    icon_dir = SCRIPT_DIR / "icons"
+    try:
+        notification = __import__("plyer", fromlist=["notification"]).notification
+    except ImportError as ex:
+        raise RuntimeError("Missing required dependency 'plyer'. Install it with: pip install plyer") from ex
 
-    pushover_cfg = read_json(pushover_cfg_f)
-    conn = http.client.HTTPSConnection("api.pushover.net:443")
-    conn.request(
-        "POST",
-        "/1/messages.json",
-        urllib.parse.urlencode(
-            {
-                "token": pushover_cfg["token"],
-                "user": pushover_cfg["user"],
-                "message": msg,
-            }
-        ),
-        {"Content-type": "application/x-www-form-urlencoded"},
-    )
-    conn.getresponse()
+    notify_kwargs = {
+        "title": "HDR Brackets",
+        "message": message,
+        "app_name": "HDR Brackets",
+        "timeout": 10,
+    }
+
+    if sys.platform.startswith("win"):
+        icon_candidates = [icon_dir / "icon.ico", icon_dir / "icon.png"]
+    else:
+        icon_candidates = [icon_dir / "icon.png", icon_dir / "icon.ico"]
+
+    last_exception = None
+    for icon_path in icon_candidates:
+        if not icon_path.exists():
+            continue
+        try:
+            notification.notify(**{**notify_kwargs, "app_icon": icon_path.as_posix()})
+            return
+        except Exception as ex:
+            last_exception = ex
+
+    try:
+        notification.notify(**notify_kwargs)
+    except Exception as ex:
+        if last_exception is not None:
+            raise RuntimeError("Failed to send system notification") from last_exception
+        raise RuntimeError("Failed to send system notification") from ex
 
 
 def chunks(l, n):
@@ -437,7 +451,7 @@ class HDRBrackets(Frame):
             print("Images per bracket: %d" % brackets + " (%.1f seconds per bracket)" % (folder_duration / brackets))
             print("Total brackets processed: %d" % (len(files) / brackets))
             print("Threads used: %d" % int(self.num_threads.get()))
-            notify_phone(folder)
+            notify_phone(f"Completed {folder}")
             for btn in self.buttons_to_disable:
                 btn["state"] = "normal"
             self.btn_execute["text"] = "Done!"
@@ -461,7 +475,11 @@ def main():
     root = Tk()
     root.geometry("450x86")
     center(root)
-    root.iconbitmap(str(SCRIPT_DIR / "icons/icon.ico"))
+    png_icon = SCRIPT_DIR / "icons" / "icon.png"
+    if png_icon.exists():
+        root.iconphoto(True, PhotoImage(file=png_icon.as_posix()))
+    else:
+        root.iconbitmap(str(SCRIPT_DIR / "icons/icon.ico"))
     app = HDRBrackets(root)
     root.mainloop()
 

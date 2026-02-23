@@ -24,8 +24,6 @@ setup(
     name="HDR Brackets",
     version="0.1",
     description="",
-    buildOptions=dict(packages=["exifread"], excludes=[]),
-    executables=[
-        Executable(script="hdr_brackets.py", base=None, icon="icons/icon.ico")
-    ],
+    buildOptions=dict(packages=["exifread", "plyer"], excludes=[]),
+    executables=[Executable(script="hdr_brackets.py", base=None, icon="icons/icon.ico")],
 )

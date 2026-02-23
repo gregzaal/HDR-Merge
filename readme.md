@@ -24,6 +24,7 @@ You will need:
 
 * [Python 3.5](https://www.python.org/downloads/release/python-354/)
 * ExifRead python library - install with `pip install exifread`
+* Notification library: `pip install plyer`
 
 ## Usage
 
