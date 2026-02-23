@@ -14,7 +14,8 @@ Requires:
 
 1. Install the required software above.
 2. [Download](https://github.com/gregzaal/HDR-Merge/archive/master.zip) or [clone](git@github.com:gregzaal/HDR-Merge.git) this repository.
-3. Run the executable `build/hdr_brackets.exe` (Windows only), **OR** run the `hdr_brackets.py` script using the instructions below.
+3. Build the executable with `build.bat` (Windows only).
+4. Run `build/hdr_brackets.dist/hdr_brackets.exe`, **OR** run the `hdr_brackets.py` script using the instructions below.
 
 ### Run From Source (optional)
 
