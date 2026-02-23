@@ -6,3 +6,4 @@ config.json
 /tmp
 *.pts
 __pycache__
+*.pp3

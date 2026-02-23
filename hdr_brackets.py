@@ -86,34 +86,91 @@ def read_json(fp: pathlib.Path) -> dict:
             raise RuntimeError("Error reading JSON from %s: %s" % (fp, ex))
 
 
-def get_exe_paths() -> dict:
+def get_default_config() -> dict:
+    """Get default configuration with OS-specific paths."""
+    if sys.platform.startswith("win"):
+        # Windows default paths
+        default_exe_paths = {
+            "align_image_stack_exe": "C:\\Program Files\\Hugin\\bin\\align_image_stack.exe",
+            "blender_exe": "C:\\Program Files\\Blender Foundation\\Blender 3.4\\blender.exe",
+            "luminance_cli_exe": "C:\\Program Files (x86)\\Luminance HDR\\luminance-hdr-cli.exe",
+            "rawtherapee_cli_exe": "C:\\Program Files\\RawTherapee\\5.12\\rawtherapee-cli.exe"
+        }
+    else:
+        # Linux default paths
+        default_exe_paths = {
+            "align_image_stack_exe": "/usr/bin/align_image_stack",
+            "blender_exe": "/usr/bin/blender",
+            "luminance_cli_exe": "/usr/bin/luminance-hdr-cli",
+            "rawtherapee_cli_exe": "/usr/bin/rawtherapee-cli"
+        }
+    
+    return {
+        "exe_paths": default_exe_paths,
+        "gui_settings": {
+            "raw_extension": ".dng",
+            "tif_extension": ".tif",
+            "threads": "6",
+            "do_align": False,
+            "do_recursive": False,
+            "do_raw": False,
+            "pp3_file": ""
+        }
+    }
+
+
+def get_config() -> dict:
+    """Load configuration from config.json, creating it if it doesn't exist."""
     global SCRIPT_DIR
-    cf = SCRIPT_DIR / "exe_paths.json"
-    default_exe_paths = {"blender_exe": "", "luminance_cli_exe": "", "align_image_stack_exe": ""}
-    exe_paths = {}
+    cf = SCRIPT_DIR / "config.json"
+    
+    default_config = get_default_config()
+    config = {}
     error = ""
     missing_json_error = "You need to configure some paths first. Edit the '%s' file and fill in the paths." % cf
 
     if not cf.exists() or cf.stat().st_size == 0:
         with cf.open("w") as f:
-            json.dump(default_exe_paths, f, indent=4, sort_keys=True)
+            json.dump(default_config, f, indent=4, sort_keys=True)
         error = missing_json_error + " (file does not exist or is empty)"
     else:
-        exe_paths = read_json(cf)
+        config = read_json(cf)
+        # Merge with defaults to ensure all keys exist
+        for key, value in default_config.items():
+            if key not in config:
+                config[key] = value
+            elif isinstance(value, dict):
+                for sub_key, sub_value in value.items():
+                    if sub_key not in config[key]:
+                        config[key][sub_key] = sub_value
+        
+        # Validate exe_paths
+        exe_paths = config.get("exe_paths", {})
         for key, path in exe_paths.items():
             if not path:
                 error = missing_json_error + " (%s is empty)" % key
                 break
             if not pathlib.Path(path).exists():
-                error = '"%s" in exe_paths.json either doesn\'t exist or is an invalid path.' % path
+                error = '"%s" in config.json either doesn\'t exist or is an invalid path.' % path
+    
     if error:
         print(error)
         input("Press enter to exit.")
         sys.exit(0)
-    return exe_paths
+    
+    return config
 
 
-EXE_PATHS = get_exe_paths()
+def save_config(config: dict):
+    """Save configuration to config.json."""
+    global SCRIPT_DIR
+    cf = SCRIPT_DIR / "config.json"
+    with cf.open("w") as f:
+        json.dump(config, f, indent=4, sort_keys=True)
+
+
+CONFIG = get_config()
+EXE_PATHS = CONFIG.get("exe_paths", {})
 
 
 def play_sound(sf: str):
@@ -214,12 +271,15 @@ class HDRMergeMaster(Frame):
         self.total_sets_global = 0
         self.completed_sets_global = 0
         self.batch_folders = []
+        
+        # Load saved GUI settings
+        self.saved_settings = CONFIG.get("gui_settings", {})
 
         self.initUI()
 
     def initUI(self):
         self.master.title("HDR Brackets")
-        self.master.geometry("600x175")
+        self.master.geometry("600x210")
         self.pack(fill=BOTH, expand=True)
 
         padding = 8
@@ -238,7 +298,7 @@ class HDRMergeMaster(Frame):
             try:
                 clippath = pathlib.Path(clipboard)
                 if clippath.exists():
-                    if clippath.is_dir():                        
+                    if clippath.is_dir():
                         self.batch_folders.append(str(clippath).replace('\\', '/'))
             except OSError:
                 pass  # Not a valid path.
@@ -256,6 +316,22 @@ class HDRMergeMaster(Frame):
         # self.buttons_to_disable.append(btn_browse)
 
         # r1.pack(fill=X, pady=(padding, 0))
+
+        # ========== PP3 Profile File ==========
+        r_pp3 = Frame(master=self)
+
+        lbl_pp3 = Label(r_pp3, text="PP3 Profile:")
+        lbl_pp3.pack(side=LEFT, padx=(padding, 0))
+
+        self.pp3_file = Entry(r_pp3)
+        saved_pp3 = self.saved_settings.get("pp3_file", "")
+        self.pp3_file.insert(0, saved_pp3 if saved_pp3 else "Select a .pp3 file...")
+        self.pp3_file.pack(side=LEFT, fill=X, expand=True, padx=padding)
+
+        btn_pp3_browse = Button(r_pp3, text="Browse", command=self.set_pp3_file)
+        btn_pp3_browse.pack(side=RIGHT, padx=(0, padding))
+
+        r_pp3.pack(fill=X, pady=(padding, 0))
 
         # ========== Batch Folders ==========
         r_batch = Frame(master=self)
@@ -299,20 +375,29 @@ class HDRMergeMaster(Frame):
 
         lbl_pattern = Label(r2, text="Matching Pattern:")
         lbl_pattern.pack(side=LEFT, padx=(padding, 0))
-        self.extension = Entry(r2, width=6)
-        self.extension.insert(0, ".tif")
-        self.extension.pack(side=LEFT, padx=(padding / 2, 0))
+        
+        # Pattern frame to hold extension and label
+        pattern_frame = Frame(r2)
+        pattern_frame.pack(side=LEFT, padx=(padding / 2, 0))
+        
+        self.extension = Entry(pattern_frame, width=6)
+        self.extension.pack(side=TOP, fill=X)
+        self.extension.insert(0, self.saved_settings.get("tif_extension", ".tif"))
         self.buttons_to_disable.append(self.extension)
+        
+        self.extension_label = Label(pattern_frame, text="(TIFF)", font=("TkDefaultFont", 8))
+        self.extension_label.pack(side=TOP)
 
         lbl_threads = Label(r2, text="Threads:")
         lbl_threads.pack(side=LEFT, padx=(padding, 0))
         self.num_threads = Spinbox(r2, from_=1, to=9999999, width=2)
         self.num_threads.delete(0, "end")
-        self.num_threads.insert(0, "6")
+        self.num_threads.insert(0, self.saved_settings.get("threads", "6"))
         self.num_threads.pack(side=LEFT, padx=(padding / 3, 0))
         self.buttons_to_disable.append(self.num_threads)
 
         self.do_align = BooleanVar()
+        self.do_align.set(self.saved_settings.get("do_align", False))
         lbl_align = Label(r2, text="Align:")
         lbl_align.pack(side=LEFT, padx=(padding, 0))
         self.align = Checkbutton(r2, variable=self.do_align, onvalue=True, offvalue=False)
@@ -320,12 +405,26 @@ class HDRMergeMaster(Frame):
         self.buttons_to_disable.append(self.align)
 
         self.do_recursive = BooleanVar()
+        self.do_recursive.set(self.saved_settings.get("do_recursive", False))
         lbl_recursive = Label(r2, text="Recursive:")
         lbl_recursive.pack(side=LEFT, padx=(padding, 0))
         self.recursive = Checkbutton(
             r2, variable=self.do_recursive, onvalue=True, offvalue=False)
         self.recursive.pack(side=LEFT)
         self.buttons_to_disable.append(self.recursive)
+
+        self.do_raw = BooleanVar()
+        self.do_raw.set(self.saved_settings.get("do_raw", False))
+        lbl_raw = Label(r2, text="RAW File:")
+        lbl_raw.pack(side=LEFT, padx=(padding, 0))
+        self.raw = Checkbutton(
+            r2, variable=self.do_raw, onvalue=True, offvalue=False,
+            command=self.toggle_raw_extension)
+        self.raw.pack(side=LEFT)
+        self.buttons_to_disable.append(self.raw)
+        
+        # Initialize extension field based on saved RAW state
+        self.toggle_raw_extension()
 
         self.btn_execute = Button(r2, text='Create HDRs', command=self.execute)
         self.btn_execute.pack(side=RIGHT, fill=X, expand=True, padx=padding)
@@ -348,6 +447,27 @@ class HDRMergeMaster(Frame):
             self.btn_execute["text"] = "Create HDRs"
             self.btn_execute["command"] = self.execute
             self.progress["value"] = 0
+
+    def set_pp3_file(self):
+        """Show file browser and select PP3 profile file."""
+        path = filedialog.askopenfilename(
+            title="Select PP3 Profile",
+            filetypes=[("PP3 files", "*.pp3"), ("All files", "*.*")]
+        )
+        if path:
+            self.pp3_file.delete(0, END)
+            self.pp3_file.insert(0, path)
+
+    def toggle_raw_extension(self):
+        """Toggle extension field between RAW and TIFF extensions."""
+        if self.do_raw.get():
+            self.extension.delete(0, END)
+            self.extension.insert(0, self.saved_settings.get("raw_extension", ".dng"))
+            self.extension_label.config(text="(RAW)")
+        else:
+            self.extension.delete(0, END)
+            self.extension.insert(0, self.saved_settings.get("tif_extension", ".tif"))
+            self.extension_label.config(text="(TIFF)")
 
     def update_batch_display(self):
         """Refresh the batch listbox display."""
@@ -393,6 +513,72 @@ class HDRMergeMaster(Frame):
         folder = self.batch_folders[index]
         # self.input_folder.delete(0, END)
         # self.input_folder.insert(0, folder)
+
+    def process_raw_with_rawtherapee(
+        self,
+        rawtherapee_cli_exe: str,
+        pp3_file: str,
+        folder: pathlib.Path,
+        extension: str,
+    ) -> pathlib.Path:
+        """Process RAW files in folder using RawTherapee CLI and output TIFFs to a 'tif' subfolder."""
+        print("\nFolder %s: Processing RAW files with RawTherapee..." % folder.name)
+
+        # Determine RAW file extension (default to .dng)
+        raw_extension = extension if extension.startswith('.') else '.' + extension
+        if not raw_extension:
+            raw_extension = '.dng'
+
+        # Find all RAW files in the folder
+        glob_pattern = '*%s' % raw_extension
+        raw_files = list(folder.glob(glob_pattern))
+
+        if not raw_files:
+            print("Folder %s: No RAW files found with pattern '%s'" % (folder.name, glob_pattern))
+            return None
+
+        # Create output folder for TIFFs
+        tif_folder = folder / "tif"
+        tif_folder.mkdir(parents=True, exist_ok=True)
+
+        # Build RawTherapee CLI command
+        # Usage: rawtherapee-cli -c -p profile.pp3 -o output_dir -t -Y input_files
+        # -t = TIFF output (16-bit by default)
+        # -Y = Overwrite existing files
+        # -p = PP3 profile
+        # -o = Output directory
+        # -c = Process files (must be last before files)
+        cmd = [
+            rawtherapee_cli_exe,
+            "-p", pp3_file,  # Apply PP3 profile
+            "-o", str(tif_folder),  # Output directory
+            "-t",  # TIFF output (16-bit uncompressed)
+            "-Y",  # Overwrite existing files
+            "-c",  # Convert mode (must be last before input files)
+        ]
+
+        # Add all RAW files to process
+        for raw_file in raw_files:
+            cmd.append(str(raw_file))
+
+        print("Folder %s: Running RawTherapee CLI on %d RAW files..." % (folder.name, len(raw_files)))
+        if verbose:
+            print("Folder %s: Command: %s" % (folder.name, " ".join(cmd)))
+
+        # Run RawTherapee CLI
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                print("Folder %s: RawTherapee CLI error:" % folder.name)
+                print("STDOUT:", result.stdout)
+                print("STDERR:", result.stderr)
+                raise subprocess.CalledProcessError(result.returncode, cmd)
+        except Exception as ex:
+            print("Folder %s: Failed to process RAW files: %s" % (folder.name, ex))
+            raise
+
+        print("Folder %s: RawTherapee processing complete. TIFFs saved to: %s" % (folder.name, tif_folder))
+        return tif_folder
 
     def do_merge(
         self,
@@ -499,9 +685,26 @@ class HDRMergeMaster(Frame):
 
     def process_folder(self, folder: pathlib.Path, blender_exe: str, luminance_cli_exe: str,
                        align_image_stack_exe: str, merge_blend: pathlib.Path, merge_py: pathlib.Path,
-                       extension: str, do_align: bool, executor: ThreadPoolExecutor) -> tuple:
+                       original_extension: str, do_align: bool, do_raw: bool, rawtherapee_cli_exe: str,
+                       pp3_file: str, executor: ThreadPoolExecutor) -> tuple:
         """Process a single folder and return (num_brackets, num_sets, threads, error)."""
         out_folder = folder / "Merged"
+        
+        # If RAW processing is enabled, process RAW files first
+        if do_raw and pp3_file and pathlib.Path(pp3_file).exists():
+            tif_folder = self.process_raw_with_rawtherapee(
+                rawtherapee_cli_exe, pp3_file, folder, original_extension
+            )
+            if tif_folder:
+                # Use the tif folder for subsequent processing
+                folder = tif_folder
+                # After RAW processing, we look for .tif files
+                extension = ".tif"
+            else:
+                return (0, 0, [], "RAW processing failed")
+        else:
+            extension = original_extension
+        
         glob = extension
         if '*' not in glob:
             glob = '*%s' % glob
@@ -549,15 +752,55 @@ class HDRMergeMaster(Frame):
             folder_start_time = datetime.now()
             folder = None
 
+            global CONFIG
             global EXE_PATHS
             global SCRIPT_DIR
             blender_exe = EXE_PATHS["blender_exe"]
             luminance_cli_exe = EXE_PATHS["luminance_cli_exe"]
             align_image_stack_exe = EXE_PATHS["align_image_stack_exe"]
+            rawtherapee_cli_exe = EXE_PATHS["rawtherapee_cli_exe"]
             merge_blend = SCRIPT_DIR / "blender" / "HDR_Merge.blend"
             merge_py = SCRIPT_DIR / "blender" / "blender_merge.py"
             extension = self.extension.get()
             do_align = self.do_align.get()
+            do_raw = self.do_raw.get()
+            pp3_file = self.pp3_file.get()
+            
+            # Save GUI settings to config - update the appropriate extension
+            pp3_value = pp3_file if pp3_file and pathlib.Path(pp3_file).exists() else ""
+            
+            # Update the extension settings based on current RAW state
+            if do_raw:
+                CONFIG["gui_settings"]["raw_extension"] = extension
+                CONFIG["gui_settings"]["tif_extension"] = self.saved_settings.get("tif_extension", ".tif")
+            else:
+                CONFIG["gui_settings"]["raw_extension"] = self.saved_settings.get("raw_extension", ".dng")
+                CONFIG["gui_settings"]["tif_extension"] = extension
+            
+            CONFIG["gui_settings"]["threads"] = self.num_threads.get()
+            CONFIG["gui_settings"]["do_align"] = do_align
+            CONFIG["gui_settings"]["do_recursive"] = self.do_recursive.get()
+            CONFIG["gui_settings"]["do_raw"] = do_raw
+            CONFIG["gui_settings"]["pp3_file"] = pp3_value
+            
+            save_config(CONFIG)
+            
+            original_extension = extension  # Keep track of original extension for RAW processing
+
+            # Validate RAW processing settings if enabled
+            if do_raw:
+                if not pp3_file or not pathlib.Path(pp3_file).exists():
+                    messagebox.showerror(
+                        "PP3 Profile Required",
+                        "RAW processing is enabled but no valid PP3 profile file is selected!\n\n"
+                        "Please select a valid .pp3 profile file."
+                    )
+                    for btn in self.buttons_to_disable:
+                        btn['state'] = 'normal'
+                    self.btn_execute['text'] = "Create HDRs"
+                    return
+                # Change extension to .tif for RAW processing (output from RawTherapee)
+                extension = ".tif"
 
             # Determine folders to process
             folders_to_process = []
@@ -616,8 +859,21 @@ class HDRMergeMaster(Frame):
             # First pass: calculate total sets across all folders for progress tracking
             total_sets_global = 0
             folder_info = []
+            
+            # Determine the file extension to look for in the first pass
+            if do_raw:
+                # For RAW processing, look for RAW files in the original folders
+                raw_extension = self.extension.get()
+                if not raw_extension.startswith('.'):
+                    raw_extension = '.' + raw_extension
+                if not raw_extension or raw_extension == '.':
+                    raw_extension = '.dng'
+                first_pass_extension = raw_extension
+            else:
+                first_pass_extension = extension
+                
             for proc_folder in folders_to_process:
-                glob = extension
+                glob = first_pass_extension
                 if '*' not in glob:
                     glob = '*%s' % glob
                 files = list(proc_folder.glob(glob))
@@ -638,17 +894,31 @@ class HDRMergeMaster(Frame):
             if not folder_info:
                 print("No matching files found in the input folder.")
                 if self.batch_folders:
-                    messagebox.showerror(
-                        "No matching files",
-                        "No matching files found in any of the batch folders!\n\n"
-                        "Please check that the folders contain images with the pattern: '%s'" % extension
-                    )
+                    if do_raw:
+                        messagebox.showerror(
+                            "No matching files",
+                            "No RAW files found in any of the batch folders!\n\n"
+                            "Please check that the folders contain RAW images with the pattern: '%s'" % first_pass_extension
+                        )
+                    else:
+                        messagebox.showerror(
+                            "No matching files",
+                            "No matching files found in any of the batch folders!\n\n"
+                            "Please check that the folders contain images with the pattern: '%s'" % extension
+                        )
                 else:
-                    messagebox.showerror(
-                        "No matching files",
-                        "No matching files found in the input folder!\n\n"
-                        "Please check that the folder contains images with the pattern: '%s'" % extension
-                    )
+                    if do_raw:
+                        messagebox.showerror(
+                            "No matching files",
+                            "No RAW files found in the input folder!\n\n"
+                            "Please check that the folder contains RAW images with the pattern: '%s'" % first_pass_extension
+                        )
+                    else:
+                        messagebox.showerror(
+                            "No matching files",
+                            "No matching files found in the input folder!\n\n"
+                            "Please check that the folder contains images with the pattern: '%s'" % extension
+                        )
                 for btn in self.buttons_to_disable:
                     btn['state'] = 'normal'
                 self.btn_execute['text'] = "Create HDRs"
@@ -669,7 +939,8 @@ class HDRMergeMaster(Frame):
                     brackets, sets, threads, error = self.process_folder(
                         proc_folder, blender_exe, luminance_cli_exe,
                         align_image_stack_exe, merge_blend, merge_py,
-                        extension, do_align, executor)
+                        original_extension, do_align, do_raw, rawtherapee_cli_exe,
+                        pp3_file, executor)
                     bracket_list.append(brackets)
                     total_sets += sets
                     all_threads.extend(threads)
