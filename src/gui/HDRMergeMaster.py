@@ -50,7 +50,8 @@ class HDRMergeMaster(Frame):
         self.completed_sets_global = 0
         self.batch_folders = []
         self.folder_profiles = {}  # Maps folder path to profile name
-        self.folder_stats = {}  # Maps folder path to (brackets, sets) tuple
+        self.folder_stats = {}  # Maps folder path to analysis dict
+        self.folder_align = {}  # Maps folder path to align setting (bool)
         self._selected_folder = None  # Track currently selected folder
         self._processing_thread = None  # Track processing thread
 
@@ -62,7 +63,7 @@ class HDRMergeMaster(Frame):
     def initUI(self):
         # Initialize the user interface.
         self.master.title("HDR Merge Master " + VERSION)
-        self.master.geometry("750x300")
+        self.master.geometry("800x400")
         self.pack(fill=BOTH, expand=True)
 
         padding = 8
@@ -74,36 +75,41 @@ class HDRMergeMaster(Frame):
         except TclError:
             pass
 
-        # ========== Batch Folders (Treeview Table) ==========
+        # ========== Batch Folders (Treeview Table) - Expandable ==========
         r_batch = Frame(master=self)
 
         lbl_batch = Label(r_batch, width=12, text="Input Folders:")
         lbl_batch.pack(side=LEFT, fill=Y, padx=(padding, 0))
 
-        # Treeview table with scrollbar
+        # Treeview table with scrollbar - expandable
         table_frame = Frame(r_batch)
         table_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=padding)
 
         # Create Treeview with columns
-        columns = ("folder", "profile", "brackets", "sets")
+        columns = ("folder", "profile", "extension", "raw", "align", "brackets", "sets")
         self.batch_table = ttk.Treeview(
             table_frame,
             columns=columns,
             selectmode="extended",
-            height=5,
         )
 
         # Configure columns
         self.batch_table.column("#0", width=0, stretch=tk.NO, minwidth=0)  # Hidden column
-        self.batch_table.column("folder", anchor=tk.W, width=300, minwidth=150)
-        self.batch_table.column("profile", anchor=tk.W, width=120, minwidth=80)
-        self.batch_table.column("brackets", anchor=tk.W, width=60, minwidth=40)
-        self.batch_table.column("sets", anchor=tk.W, width=50, minwidth=30)
+        self.batch_table.column("folder", anchor=tk.W, width=200, minwidth=100)
+        self.batch_table.column("profile", anchor=tk.W, width=80, minwidth=60)
+        self.batch_table.column("extension", anchor=tk.W, width=50, minwidth=40)
+        self.batch_table.column("raw", anchor=tk.CENTER, width=40, minwidth=35)
+        self.batch_table.column("align", anchor=tk.CENTER, width=45, minwidth=40)
+        self.batch_table.column("brackets", anchor=tk.W, width=55, minwidth=40)
+        self.batch_table.column("sets", anchor=tk.W, width=40, minwidth=30)
 
         # Configure headings
         self.batch_table.heading("#0", text="", anchor=tk.W)
         self.batch_table.heading("folder", text="Folder", anchor=tk.W)
         self.batch_table.heading("profile", text="Profile", anchor=tk.W)
+        self.batch_table.heading("extension", text="Ext", anchor=tk.W)
+        self.batch_table.heading("raw", text="RAW", anchor=tk.CENTER)
+        self.batch_table.heading("align", text="Align", anchor=tk.CENTER)
         self.batch_table.heading("brackets", text="Brackets", anchor=tk.W)
         self.batch_table.heading("sets", text="Sets", anchor=tk.W)
 
@@ -137,21 +143,21 @@ class HDRMergeMaster(Frame):
         )
         btn_clear.pack(side=TOP, fill=Y, pady=(2, 0))
 
-        # Recursive checkbox
-        self.do_recursive = BooleanVar()
-        self.do_recursive.set(self.saved_settings.get("do_recursive", False))
+        # Recursive checkbox at bottom of button stack
+        self.do_recursive_option = BooleanVar()
+        self.do_recursive_option.set(self.saved_settings.get("do_recursive", False))
         self.recursive_check = Checkbutton(
             btn_batch_frame,
-            variable=self.do_recursive,
+            variable=self.do_recursive_option,
             onvalue=True,
             offvalue=False,
             text="Recursive",
         )
         self.recursive_check.pack(side=TOP, pady=(4, 0))
 
-        r_batch.pack(fill=BOTH, pady=(padding, 0))
+        r_batch.pack(fill=BOTH, expand=True, pady=(padding, 0))
 
-        # ========== Profile Selection ==========
+        # ========== Profile Selection and Align ==========
         r_profile = Frame(master=self)
 
         lbl_profile = Label(r_profile, width=12, text="PP3 Profile:")
@@ -178,99 +184,47 @@ class HDRMergeMaster(Frame):
         # ========== Options ==========
         r2 = Frame(master=self)
 
-        lbl_pattern = Label(r2, text="Matching Pattern:")
-        lbl_pattern.pack(side=LEFT, padx=(padding, 0))
-
-        # Pattern frame to hold extension and label
-        pattern_frame = Frame(r2)
-        pattern_frame.pack(side=LEFT, padx=(padding / 2, 0))
-
-        self.extension = Entry(pattern_frame, width=6)
-        self.extension.pack(side=TOP, fill=X)
-        self.extension.insert(0, self.saved_settings.get("tif_extension", ".tif"))
-        self.extension.bind("<Return>", self.save_extension)
-        self.buttons_to_disable.append(self.extension)
-
-        self.extension_label = Label(
-            pattern_frame, text="(TIFF)", font=("TkDefaultFont", 8)
-        )
-        self.extension_label.pack(side=TOP)
-
         lbl_threads = Label(r2, text="Threads:")
-        lbl_threads.pack(side=LEFT, padx=(padding, 0))
-        self.num_threads = Spinbox(r2, from_=1, to=9999999, width=2)
+        lbl_threads.pack(side=LEFT, padx=(50, 0))
+        self.num_threads = Spinbox(r2, from_=1, to=9999999, width=6)
         self.num_threads.delete(0, "end")
         self.num_threads.insert(0, self.saved_settings.get("threads", "6"))
         self.num_threads.bind("<Return>", self.save_threads)
-        self.num_threads.pack(side=LEFT, padx=(padding / 3, 0))
+        self.num_threads.pack(side=LEFT, padx=(padding, 0))
         self.buttons_to_disable.append(self.num_threads)
 
-        self.do_raw = BooleanVar()
-        self.do_raw.set(self.saved_settings.get("do_raw", False))
-        lbl_raw = Label(r2, text="RAW File:")
-        lbl_raw.pack(side=LEFT, padx=(padding, 0))
-        self.raw = Checkbutton(
-            r2,
-            variable=self.do_raw,
-            onvalue=True,
-            offvalue=False,
-            command=self.toggle_raw_extension,
-        )
-        self.raw.pack(side=LEFT)
-        self.buttons_to_disable.append(self.raw)
-
-        # Disable RAW checkbox if RawTherapee CLI is not available
-        if not CONFIG.get("_optional_exes_available", {}).get(
-            "rawtherapee_cli_exe", False
-        ):
-            self.raw.config(state="disabled")
-            self.do_raw.set(False)
-
-        # Initialize extension field based on saved RAW state
-        self.toggle_raw_extension()
+        # Align checkbox
         self.do_align = BooleanVar()
         self.do_align.set(self.saved_settings.get("do_align", False))
-        lbl_align = Label(r2, text="Align:")
-        lbl_align.pack(side=LEFT, padx=(padding, 0))
-        self.align = Checkbutton(
-            r2, variable=self.do_align, onvalue=True, offvalue=False
+        self.align_check2 = Checkbutton(
+            r2,
+            variable=self.do_align,
+            onvalue=True,
+            offvalue=False,
+            text="Align",
+            command=self.toggle_folder_align,
         )
-        self.align.pack(side=LEFT)
-        self.buttons_to_disable.append(self.align)
+        self.align_check2.pack(side=LEFT, padx=(padding, 0))
+        self.buttons_to_disable.append(self.align_check2)
 
         # Disable Align checkbox if align_image_stack is not available
         if not CONFIG.get("_optional_exes_available", {}).get(
             "align_image_stack_exe", False
         ):
-            self.align.config(state="disabled")
+            self.align_check2.config(state="disabled")
             self.do_align.set(False)
 
-        self.do_recursive_option = BooleanVar()
-        self.do_recursive_option.set(self.saved_settings.get("do_recursive", False))
-        lbl_recursive = Label(r2, text="Recursive:")
-        lbl_recursive.pack(side=LEFT, padx=(padding, 0))
-        self.recursive_option = Checkbutton(
-            r2, variable=self.do_recursive_option, onvalue=True, offvalue=False
-        )
-        self.recursive_option.pack(side=LEFT)
-        self.buttons_to_disable.append(self.recursive_option)
+        # Spacer to push button to right
+        Frame(r2).pack(side=LEFT, fill=X, expand=True)
+
+        btn_setup_dialog = Button(r2, text="Setup", command=self.open_setup_dialog)
+        btn_setup_dialog.pack(side=LEFT, padx=(0, padding))
 
         self.btn_execute = Button(r2, text="Create HDRs", command=self.execute)
-        self.btn_execute.pack(side=RIGHT, fill=X, expand=True, padx=padding)
+        self.btn_execute.pack(side=RIGHT, padx=padding)
         self.buttons_to_disable.append(self.btn_execute)
 
         r2.pack(fill=X, pady=(padding, 0))
-
-        # ========== Setup and Settings Buttons ==========
-
-        r3 = Frame(master=self)
-
-        btn_setup_dialog = Button(
-            r3, text="Setup", command=self.open_setup_dialog
-        )
-        btn_setup_dialog.pack(side=LEFT, padx=(padding, padding))
-
-        r3.pack(fill=X, pady=(padding, 0))
 
         # ========== Progress Bar ==========
         r4 = Frame(master=self)
@@ -280,18 +234,7 @@ class HDRMergeMaster(Frame):
         )
         self.progress.pack(fill=X, padx=padding, pady=(0, padding))
 
-        r4.pack(fill=X, pady=(padding, 0))
-
-    def toggle_raw_extension(self):
-        """Toggle extension field between RAW and TIFF extensions."""
-        if self.do_raw.get():
-            self.extension.delete(0, END)
-            self.extension.insert(0, self.saved_settings.get("raw_extension", ".dng"))
-            self.extension_label.config(text="(RAW)")
-        else:
-            self.extension.delete(0, END)
-            self.extension.insert(0, self.saved_settings.get("tif_extension", ".tif"))
-            self.extension_label.config(text="(TIFF)")
+        r4.pack(fill=X)
 
     def update_batch_display(self):
         """Refresh the batch table display."""
@@ -302,8 +245,15 @@ class HDRMergeMaster(Frame):
         # Add folders with their profile info and stats
         for folder in self.batch_folders:
             profile_name = self.folder_profiles.get(folder, "")
-            brackets, sets = self.folder_stats.get(folder, ("", ""))
-            self.batch_table.insert("", END, iid=folder, values=(folder, profile_name, brackets, sets))
+            stats = self.folder_stats.get(folder, {})
+            brackets = stats.get("brackets", "")
+            sets = stats.get("sets", "")
+            extension = stats.get("extension", "")
+            is_raw = stats.get("is_raw", False)
+            raw_text = "Yes" if is_raw else "No"
+            align = self.folder_align.get(folder, False)
+            align_text = "Yes" if align else "No"
+            self.batch_table.insert("", END, iid=folder, values=(folder, profile_name, extension, raw_text, align_text, brackets, sets))
 
     def add_to_batch(self):
         """Show file browser and add selected folder(s) to batch list."""
@@ -314,7 +264,7 @@ class HDRMergeMaster(Frame):
         # Determine folders to add
         folders_to_add = []
         
-        if self.do_recursive.get():
+        if self.do_recursive_option.get():
             # Find all subfolders with HDR files
             gui_settings = CONFIG.get("gui_settings", {})
             max_depth = gui_settings.get("recursive_max_depth", 1)
@@ -332,14 +282,25 @@ class HDRMergeMaster(Frame):
             
             # Analyze the folder for brackets and sets (uses config extension lists)
             analysis = analyze_folder(pathlib.Path(folder_path))
-            
+
             self.batch_folders.append(folder_path)
-            # Auto-assign profile for new folder
-            profile = self.get_profile_for_folder(folder_path)
-            if profile:
-                self.folder_profiles[folder_path] = profile.get("name")
-            # Store the folder stats
-            self.folder_stats[folder_path] = (analysis["brackets"], analysis["sets"])
+
+            # Auto-assign profile for new folder (only if RAW files)
+            if analysis.get("is_raw", False):
+                # RAW files use profiles
+                profile = self.get_profile_for_folder(folder_path)
+                if profile:
+                    self.folder_profiles[folder_path] = profile.get("name")
+            else:
+                # Non-RAW (processed) files don't use profiles
+                self.folder_profiles[folder_path] = "N/A"
+
+            # Store the folder stats (full analysis dict)
+            self.folder_stats[folder_path] = analysis
+        
+        # Initialize align setting for new folder (default to False)
+        if folder_path not in self.folder_align:
+            self.folder_align[folder_path] = False
         
         self.update_batch_display()
 
@@ -356,6 +317,8 @@ class HDRMergeMaster(Frame):
                 self.batch_folders.remove(folder)
             if folder in self.folder_profiles:
                 del self.folder_profiles[folder]
+            if folder in self.folder_align:
+                del self.folder_align[folder]
         
         self.update_batch_display()
 
@@ -368,10 +331,11 @@ class HDRMergeMaster(Frame):
         ):
             self.batch_folders.clear()
             self.folder_profiles.clear()
+            self.folder_align.clear()
             self.update_batch_display()
 
     def on_batch_select(self, event=None):
-        """Update profile dropdown when a folder is selected in the batch table."""
+        """Update profile dropdown and align checkbox when a folder is selected."""
         selection = self.batch_table.selection()
         if not selection:
             self._selected_folder = None
@@ -381,16 +345,32 @@ class HDRMergeMaster(Frame):
         item = selection[0]
         folder = self.batch_table.item(item)["values"][0]
         self._selected_folder = folder
-        self.update_profile_dropdown(folder)
-
-    def save_extension(self, event=None):
-        """Save the current extension to config based on RAW/TIFF mode."""
-        extension = self.extension.get()
-        if self.do_raw.get():
-            CONFIG["gui_settings"]["raw_extension"] = extension
+        
+        # Update align checkbox to match folder's setting
+        align_setting = self.folder_align.get(folder, False)
+        self.do_align.set(align_setting)
+        
+        # Check if folder contains RAW files
+        stats = self.folder_stats.get(folder, {})
+        if not stats.get("is_raw", False):
+            # Non-RAW (processed) files don't use profiles - disable dropdown
+            self.profile_var.set("N/A")
+            self.profile_dropdown.config(state="disabled")
         else:
-            CONFIG["gui_settings"]["tif_extension"] = extension
-        save_config(CONFIG)
+            # Enable dropdown and update profile
+            self.profile_dropdown.config(state="readonly")
+            self.update_profile_dropdown(folder)
+
+    def toggle_folder_align(self):
+        """Toggle align setting for the currently selected folder."""
+        if not hasattr(self, "_selected_folder") or not self._selected_folder:
+            # No folder selected, just update the saved setting for future folders
+            self.saved_settings["do_align"] = self.do_align.get()
+            return
+        
+        # Toggle the align setting for the selected folder
+        self.folder_align[self._selected_folder] = self.do_align.get()
+        self.update_batch_display()
 
     def save_threads(self, event=None):
         """Save the current thread count to config."""
@@ -448,6 +428,12 @@ class HDRMergeMaster(Frame):
     def on_profile_change(self, event=None):
         """Update folder-to-profile mapping when dropdown selection changes."""
         if not hasattr(self, "_selected_folder") or not self._selected_folder:
+            return
+
+        # Check if folder contains RAW files
+        stats = self.folder_stats.get(self._selected_folder, {})
+        if not stats.get("is_raw", False):
+            # Non-RAW (processed) files don't use profiles - ignore changes
             return
 
         folder = self._selected_folder
@@ -533,10 +519,9 @@ class HDRMergeMaster(Frame):
                 )
                 return
 
-        extension = self.extension.get()
+        extension = ".tif"  # Default extension, analyzer will detect actual files
         threads = int(self.num_threads.get())
         do_align = self.do_align.get()
-        do_raw = self.do_raw.get()
         do_recursive = self.do_recursive_option.get()
 
         # Disable buttons during processing
@@ -552,7 +537,7 @@ class HDRMergeMaster(Frame):
             extension=extension,
             threads=threads,
             do_align=do_align,
-            do_raw=do_raw,
+            do_raw=False,  # RAW processing removed from UI, auto-detected
             do_recursive=do_recursive,
             progress_callback=self._on_progress_update,
             completion_callback=self._on_processing_complete,
