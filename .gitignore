@@ -1,6 +1,9 @@
 exe_paths.json
 pushover.json
+config.json
 *.blend?
 /build
 /tmp
 *.pts
+__pycache__
+*.pp3

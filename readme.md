@@ -3,7 +3,7 @@
 A script that uses Blender's compositor to reliably merge exposure brackets to 32-bit EXR files in bulk.
 
 <p align="center">
-<img width="452" height="118" alt="2026-02-23_14-58-45" src="https://github.com/user-attachments/assets/ff359f04-d101-4eee-9835-e92f94ec9659" />
+<img width="614" height="220" alt="screenshot" src="https://github.com/user-attachments/assets/3caa43d4-d415-4a4c-8e44-ee2b826c5aec" />
 </p>
 
 ## Installation
@@ -49,11 +49,13 @@ Note: Do not use the `align_image_stack.exe` that comes with LuminanceHDR, as th
 
 Then:
 
-1. Select a folder that contains your full set of exposure brackets (see *Example Folder Structure* below)
+1. Select a folder that contains your full set of exposure brackets (see *Example Folder Structure* below) You can now add multiple folders to the input folders for batch processing.
 2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but **RAW files from your camera will not work**. I typically do some minor tweaks to the RAW files in Lightroom first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script.
 3. Choose the number of threads (the number of simultaneous bracketed exposures to merge). Use as many threads as you can without running out of RAM or freezing your computer. In my experience 6 threads usually works fine for 32 GB RAM.
-4. Click *Create HDRs*, and monitor the console window for progress and errors.
-5. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files, while the `jpg` folder contains tonemapped versions of those files.
+4. Choose whether to align the images before merging.
+5. Choose whether you want the scrpit to look for subfolders inside the selected folders recursivly.
+6. Click *Create HDRs*, and monitor the console window for progress and errors.
+7. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files, while the `jpg` folder contains tonemapped versions of those files.
 
 Note: This tool does not do any ghost removal, so it's important that you use a steady tripod when shooting.
 
