@@ -606,7 +606,7 @@ class HDRMergeMaster(Frame):
         self.initUI()
 
     def initUI(self):
-        self.master.title("HDR Merge Master 2000.1.2.1.rc1")
+        self.master.title("HDR Merge Master " + __version__)
         self.master.geometry("600x225")
         self.pack(fill=BOTH, expand=True)
 
@@ -1025,7 +1025,7 @@ class HDRMergeMaster(Frame):
             "-o",
             str(tif_folder),  # Output directory
             "-t",  # TIFF output (16-bit uncompressed)
-            "-Y",  # Overwrite existing files
+            #"-Y",  # Overwrite existing files
             "-c",  # Convert mode (must be last before input files)
         ]
 
@@ -1042,12 +1042,7 @@ class HDRMergeMaster(Frame):
 
         # Run RawTherapee CLI
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode != 0:
-                print("Folder %s: RawTherapee CLI error:" % folder.name)
-                print("STDOUT:", result.stdout)
-                print("STDERR:", result.stderr)
-                raise subprocess.CalledProcessError(result.returncode, cmd)
+            run_subprocess_with_prefix(cmd, 0, "rawtherapee", out_folder=tif_folder)
         except Exception as ex:
             print("Folder %s: Failed to process RAW files: %s" % (folder.name, ex))
             raise
@@ -1112,6 +1107,7 @@ class HDRMergeMaster(Frame):
             actual_img_list = [i.split("___")[0] for i in img_list]
             cmd = [
                 align_image_stack_exe,
+                "-v",
                 "-i",
                 "-l",
                 "-a",
@@ -1598,7 +1594,7 @@ class HDRMergeMaster(Frame):
             print("Images per bracket: %s" % bracket_list)
             print("Total sets processed: %d" % total_sets)
             print("Threads used: %d" % int(self.num_threads.get()))
-            notify_phone(f"Completed {folder}")
+            notify_phone(f"Completed processing folders: {', '.join([f.name for f in folders_to_process])}")
             for btn in self.buttons_to_disable:
                 btn["state"] = "normal"
             self.btn_execute["text"] = "Done!"

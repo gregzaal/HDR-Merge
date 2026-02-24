@@ -10,7 +10,7 @@ A script that uses Blender's compositor to reliably merge exposure brackets to 3
 
 #### Requires:
 
-* [Blender 4.5 LTS](http://download.blender.org/release/Blender2.79/)
+* [Blender 4.5 LTS](https://www.blender.org/download/releases/4-5/)
 * [Luminance HDR v2.6.1](https://sourceforge.net/projects/qtpfsgui/files/luminance/)
 
 #### Optional:
@@ -93,7 +93,3 @@ The script will discover that images `IMG001.tif` and `IMG004.tif` have the same
     * `IMG006.tif`
 
 Exposures can be in any order (`0 + ++`, `0 - --`, `0 + -`, `- 0 +`, etc.).
-
-## TODO
-
-* Allow for inconsistant exposure brackets - currently the first exposure set determines how many images there are per set, but it should be possible to support exposure sets with varying numbers of images.
