@@ -8,12 +8,12 @@ A script that uses Blender's compositor to reliably merge exposure brackets to 3
 
 ## Installation
 
-### Requires:
+#### Requires:
 
 * [Blender 4.5 LTS](http://download.blender.org/release/Blender2.79/)
 * [Luminance HDR v2.6.1](https://sourceforge.net/projects/qtpfsgui/files/luminance/)
 
-### Optional:
+#### Optional:
 
 * [Hugin 2021](https://hugin.sourceforge.io/download/) (aligning images)
 * [Rawtherapee](https://rawtherapee.com/downloads/5.12/) (processing from raw files)
