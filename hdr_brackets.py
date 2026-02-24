@@ -59,7 +59,9 @@ def center(win):
     win.geometry("{}x{}+{}+{}".format(width, height, x, y))
 
 
-def run_subprocess_with_prefix(cmd: list, bracket_id: int, label: str, out_folder: pathlib.Path):
+def run_subprocess_with_prefix(
+    cmd: list, bracket_id: int, label: str, out_folder: pathlib.Path
+):
     """Run a subprocess and save output to a timestamped log file."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_filename = "bracket_%03d_%s_%s.log" % (bracket_id, label, timestamp)
@@ -96,7 +98,7 @@ def get_default_config() -> dict:
             "align_image_stack_exe": "C:\\Program Files\\Hugin\\bin\\align_image_stack.exe",
             "blender_exe": "C:\\Program Files\\Blender Foundation\\Blender 3.4\\blender.exe",
             "luminance_cli_exe": "C:\\Program Files (x86)\\Luminance HDR\\luminance-hdr-cli.exe",
-            "rawtherapee_cli_exe": "C:\\Program Files\\RawTherapee\\5.12\\rawtherapee-cli.exe"
+            "rawtherapee_cli_exe": "C:\\Program Files\\RawTherapee\\5.12\\rawtherapee-cli.exe",
         }
     else:
         # Linux default paths
@@ -104,9 +106,9 @@ def get_default_config() -> dict:
             "align_image_stack_exe": "/usr/bin/align_image_stack",
             "blender_exe": "/usr/bin/blender",
             "luminance_cli_exe": "/usr/bin/luminance-hdr-cli",
-            "rawtherapee_cli_exe": "/usr/bin/rawtherapee-cli"
+            "rawtherapee_cli_exe": "/usr/bin/rawtherapee-cli",
         }
-    
+
     return {
         "exe_paths": default_exe_paths,
         "gui_settings": {
@@ -116,9 +118,9 @@ def get_default_config() -> dict:
             "do_align": False,
             "do_recursive": False,
             "do_raw": False,
-            "pp3_file": ""
+            "pp3_file": "",
         },
-        "pp3_profiles": []
+        "pp3_profiles": [],
     }
 
 
@@ -130,7 +132,10 @@ def get_config() -> dict:
     default_config = get_default_config()
     config = {}
     error = ""
-    missing_json_error = "You need to configure some paths first. Edit the '%s' file and fill in the paths." % cf
+    missing_json_error = (
+        "You need to configure some paths first. Edit the '%s' file and fill in the paths."
+        % cf
+    )
 
     # Required exe paths (must exist)
     required_exes = ["blender_exe", "luminance_cli_exe"]
@@ -160,7 +165,10 @@ def get_config() -> dict:
                 error = missing_json_error + " (%s is empty)" % key
                 break
             if not pathlib.Path(path).exists():
-                error = '"%s" in config.json either doesn\'t exist or is an invalid path.' % path
+                error = (
+                    '"%s" in config.json either doesn\'t exist or is an invalid path.'
+                    % path
+                )
 
         # Check optional exe_paths and mark as unavailable if missing
         config["_optional_exes_available"] = {}
@@ -170,7 +178,10 @@ def get_config() -> dict:
                 config["_optional_exes_available"][key] = True
             else:
                 config["_optional_exes_available"][key] = False
-                print("Warning: %s is not available (%s). Related features will be disabled." % (key, path + " not found" if path else "path not configured"))
+                print(
+                    "Warning: %s is not available (%s). Related features will be disabled."
+                    % (key, path + " not found" if path else "path not configured")
+                )
 
     if error:
         print(error)
@@ -208,7 +219,9 @@ def notify_phone(msg="Done"):
     try:
         notification = __import__("plyer", fromlist=["notification"]).notification
     except ImportError as ex:
-        raise RuntimeError("Missing required dependency 'plyer'. Install it with: pip install plyer") from ex
+        raise RuntimeError(
+            "Missing required dependency 'plyer'. Install it with: pip install plyer"
+        ) from ex
 
     notify_kwargs = {
         "title": "HDR Merge Master",
@@ -268,7 +281,12 @@ def get_exif(filepath: pathlib.Path):
     except ZeroDivisionError:
         aperture = 0
     iso = int(str(tags["EXIF ISOSpeedRatings"]))
-    return {"resolution": resolution, "shutter_speed": shutter_speed, "aperture": aperture, "iso": iso}
+    return {
+        "resolution": resolution,
+        "shutter_speed": shutter_speed,
+        "aperture": aperture,
+        "iso": iso,
+    }
 
 
 def ev_diff(bright_image, dark_image):
@@ -291,7 +309,7 @@ class EditProfileDialog(Toplevel):
         self.geometry("600x150")
         self.profile = profile
         self.save_callback = save_callback
-        
+
         self.initUI()
         center(self)
         self.transient(parent)
@@ -299,48 +317,50 @@ class EditProfileDialog(Toplevel):
 
     def initUI(self):
         padding = 8
-        
+
         # Profile name
         name_frame = Frame(self)
         name_frame.pack(fill=X, padx=padding, pady=(padding, 4))
-        
-        Label(name_frame, text="Profile Name:", width=15, anchor='w').pack(side=LEFT)
+
+        Label(name_frame, text="Profile Name:", width=15, anchor="w").pack(side=LEFT)
         self.profile_name = Entry(name_frame)
         self.profile_name.pack(side=LEFT, fill=X, expand=True)
         self.profile_name.insert(0, self.profile.get("name", ""))
-        self.profile_name.bind('<Return>', lambda e: self.save_and_close())
-        
+        self.profile_name.bind("<Return>", lambda e: self.save_and_close())
+
         # Profile path
         path_frame = Frame(self)
         path_frame.pack(fill=X, padx=padding, pady=4)
-        
-        Label(path_frame, text="Profile Path:", width=15, anchor='w').pack(side=LEFT)
+
+        Label(path_frame, text="Profile Path:", width=15, anchor="w").pack(side=LEFT)
         self.profile_path = Entry(path_frame)
         self.profile_path.pack(side=LEFT, fill=X, expand=True)
         self.profile_path.insert(0, self.profile.get("path", ""))
-        
-        btn_browse = Button(path_frame, text="Browse", command=self.browse_profile, width=8)
+
+        btn_browse = Button(
+            path_frame, text="Browse", command=self.browse_profile, width=8
+        )
         btn_browse.pack(side=RIGHT, padx=(4, 0))
-        
+
         # Folder key
         key_frame = Frame(self)
         key_frame.pack(fill=X, padx=padding, pady=4)
-        
-        Label(key_frame, text="Folder Key:", width=15, anchor='w').pack(side=LEFT)
+
+        Label(key_frame, text="Folder Key:", width=15, anchor="w").pack(side=LEFT)
         self.folder_key = Entry(key_frame)
         self.folder_key.pack(side=LEFT, fill=X, expand=True)
         self.folder_key.insert(0, self.profile.get("folder_key", ""))
-        self.folder_key.bind('<Return>', lambda e: self.save_and_close())
-        
+        self.folder_key.bind("<Return>", lambda e: self.save_and_close())
+
         Label(key_frame, text="(auto-match)", fg="gray").pack(side=LEFT, padx=(4, 0))
-        
+
         # Button frame
         btn_frame = Frame(self)
         btn_frame.pack(fill=X, padx=padding, pady=(padding, 0))
-        
+
         btn_save = Button(btn_frame, text="Save", command=self.save_and_close, width=10)
         btn_save.pack(side=RIGHT, padx=(4, 0))
-        
+
         btn_cancel = Button(btn_frame, text="Cancel", command=self.destroy, width=10)
         btn_cancel.pack(side=RIGHT)
 
@@ -348,7 +368,7 @@ class EditProfileDialog(Toplevel):
         """Browse for profile path."""
         path = filedialog.askopenfilename(
             title="Select PP3 Profile",
-            filetypes=[("PP3 files", "*.pp3"), ("All files", "*.*")]
+            filetypes=[("PP3 files", "*.pp3"), ("All files", "*.*")],
         )
         if path:
             self.profile_path.delete(0, END)
@@ -412,16 +432,24 @@ class PP3ProfileManager(Toplevel):
         btn_add = Button(btn_frame, text="Add", command=self.add_profile, width=10)
         btn_add.pack(side=TOP, pady=(0, 4))
 
-        btn_remove = Button(btn_frame, text="Remove", command=self.remove_profile, width=10)
+        btn_remove = Button(
+            btn_frame, text="Remove", command=self.remove_profile, width=10
+        )
         btn_remove.pack(side=TOP, pady=(0, 4))
 
-        btn_clear = Button(btn_frame, text="Clear All", command=self.clear_profiles, width=10)
+        btn_clear = Button(
+            btn_frame, text="Clear All", command=self.clear_profiles, width=10
+        )
         btn_clear.pack(side=TOP, pady=(0, 4))
 
-        btn_set_default = Button(btn_frame, text="Set Default", command=self.set_default, width=10)
+        btn_set_default = Button(
+            btn_frame, text="Set Default", command=self.set_default, width=10
+        )
         btn_set_default.pack(side=TOP)
 
-        btn_edit = Button(btn_frame, text="Edit Profile", command=self.edit_profile, width=10)
+        btn_edit = Button(
+            btn_frame, text="Edit Profile", command=self.edit_profile, width=10
+        )
         btn_edit.pack(side=TOP, pady=(4, 0))
 
         # Close button
@@ -433,8 +461,16 @@ class PP3ProfileManager(Toplevel):
         self.profile_listbox.delete(0, END)
         for profile in self.profiles:
             default_marker = " [DEFAULT]" if profile.get("default", False) else ""
-            key_info = " (%s)" % profile.get("folder_key", "") if profile.get("folder_key") else ""
-            display_name = "%s%s%s" % (profile.get("name", "Unnamed"), default_marker, key_info)
+            key_info = (
+                " (%s)" % profile.get("folder_key", "")
+                if profile.get("folder_key")
+                else ""
+            )
+            display_name = "%s%s%s" % (
+                profile.get("name", "Unnamed"),
+                default_marker,
+                key_info,
+            )
             self.profile_listbox.insert(END, display_name)
 
     def edit_profile(self):
@@ -443,22 +479,22 @@ class PP3ProfileManager(Toplevel):
         if not selection:
             messagebox.showwarning("No Selection", "Please select a profile to edit.")
             return
-        
+
         index = selection[0]
         profile = self.profiles[index]
-        
+
         # Open edit dialog with callback to update display and save
         def on_save():
             self.save_profiles()
             self.update_profile_display()
-        
+
         EditProfileDialog(self, profile, on_save)
 
     def add_profile(self):
         """Add a new profile."""
         path = filedialog.askopenfilename(
             title="Select PP3 Profile",
-            filetypes=[("PP3 files", "*.pp3"), ("All files", "*.*")]
+            filetypes=[("PP3 files", "*.pp3"), ("All files", "*.*")],
         )
         if not path:
             return
@@ -469,14 +505,16 @@ class PP3ProfileManager(Toplevel):
         # Check if profile with same path already exists
         for profile in self.profiles:
             if profile.get("path") == path:
-                messagebox.showinfo("Already Exists", "This profile is already in the list.")
+                messagebox.showinfo(
+                    "Already Exists", "This profile is already in the list."
+                )
                 return
 
         new_profile = {
             "name": name,
             "path": path,
             "folder_key": "",
-            "default": len(self.profiles) == 0  # First profile is default
+            "default": len(self.profiles) == 0,  # First profile is default
         }
         self.profiles.append(new_profile)
         self.update_profile_display()
@@ -493,8 +531,10 @@ class PP3ProfileManager(Toplevel):
         profile = self.profiles[index]
 
         if profile.get("default", False):
-            if not messagebox.askyesno("Confirm Remove",
-                "This is the default profile. Removing it will set another profile as default. Continue?"):
+            if not messagebox.askyesno(
+                "Confirm Remove",
+                "This is the default profile. Removing it will set another profile as default. Continue?",
+            ):
                 return
 
         del self.profiles[index]
@@ -519,7 +559,9 @@ class PP3ProfileManager(Toplevel):
         """Set selected profile as default."""
         selection = self.profile_listbox.curselection()
         if not selection:
-            messagebox.showwarning("No Selection", "Please select a profile to set as default.")
+            messagebox.showwarning(
+                "No Selection", "Please select a profile to set as default."
+            )
             return
 
         index = selection[0]
@@ -543,7 +585,7 @@ class PP3ProfileManager(Toplevel):
         """Close and refresh folder-profile mappings."""
         self.destroy()
         # Refresh folder-profile mappings in the main window
-        if hasattr(self, 'parent') and hasattr(self.parent, 'refresh_folder_profiles'):
+        if hasattr(self, "parent") and hasattr(self.parent, "refresh_folder_profiles"):
             self.parent.refresh_folder_profiles()
 
 
@@ -583,7 +625,7 @@ class HDRMergeMaster(Frame):
                 clippath = pathlib.Path(clipboard)
                 if clippath.exists():
                     if clippath.is_dir():
-                        self.batch_folders.append(str(clippath).replace('\\', '/'))
+                        self.batch_folders.append(str(clippath).replace("\\", "/"))
             except OSError:
                 pass  # Not a valid path.
 
@@ -599,26 +641,38 @@ class HDRMergeMaster(Frame):
 
         self.batch_listbox = Listbox(batch_frame, height=4, selectmode=SINGLE)
         self.batch_listbox.pack(side=LEFT, fill=BOTH, expand=True)
-        self.batch_listbox.bind('<<ListboxSelect>>', self.on_batch_select)
+        self.batch_listbox.bind("<<ListboxSelect>>", self.on_batch_select)
 
         batch_scrollbar = Scrollbar(batch_frame, orient=VERTICAL)
         batch_scrollbar.pack(side=RIGHT, fill=BOTH)
         self.batch_listbox.config(yscrollcommand=batch_scrollbar.set)
         batch_scrollbar.config(command=self.batch_listbox.yview)
-        
+
         self.update_batch_display()
 
         # Batch buttons (stacked vertically)
         btn_batch_frame = Frame(r_batch)
-        btn_batch_frame.pack(side=LEFT, padx=(padding/2, padding,))
+        btn_batch_frame.pack(
+            side=LEFT,
+            padx=(
+                padding / 2,
+                padding,
+            ),
+        )
 
-        btn_add = Button(btn_batch_frame, text="Add", command=self.add_to_batch, width=8)
+        btn_add = Button(
+            btn_batch_frame, text="Add", command=self.add_to_batch, width=8
+        )
         btn_add.pack(side=TOP, pady=(0, 2))
 
-        btn_remove = Button(btn_batch_frame, text="Remove", command=self.remove_from_batch, width=8)
+        btn_remove = Button(
+            btn_batch_frame, text="Remove", command=self.remove_from_batch, width=8
+        )
         btn_remove.pack(side=TOP, pady=2)
 
-        btn_clear = Button(btn_batch_frame, text="Clear All", command=self.clear_batch, width=8)
+        btn_clear = Button(
+            btn_batch_frame, text="Clear All", command=self.clear_batch, width=8
+        )
         btn_clear.pack(side=TOP, fill=Y, pady=(2, 0))
 
         r_batch.pack(fill=BOTH, pady=(padding, 0))
@@ -634,11 +688,15 @@ class HDRMergeMaster(Frame):
         profile_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=padding)
 
         self.profile_var = StringVar()
-        self.profile_dropdown = ttk.Combobox(profile_frame, textvariable=self.profile_var, state="readonly")
+        self.profile_dropdown = ttk.Combobox(
+            profile_frame, textvariable=self.profile_var, state="readonly"
+        )
         self.profile_dropdown.pack(side=LEFT, fill=X, expand=True)
-        self.profile_dropdown.bind('<<ComboboxSelected>>', self.on_profile_change)
+        self.profile_dropdown.bind("<<ComboboxSelected>>", self.on_profile_change)
 
-        btn_manage_profiles = Button(r_profile, text="Manage Profiles...", command=self.open_profile_manager)
+        btn_manage_profiles = Button(
+            r_profile, text="Manage Profiles...", command=self.open_profile_manager
+        )
         btn_manage_profiles.pack(side=RIGHT, padx=(0, padding))
 
         r_profile.pack(fill=X, pady=(padding, 0))
@@ -649,7 +707,7 @@ class HDRMergeMaster(Frame):
 
         lbl_pattern = Label(r2, text="Matching Pattern:")
         lbl_pattern.pack(side=LEFT, padx=(padding, 0))
-        
+
         # Pattern frame to hold extension and label
         pattern_frame = Frame(r2)
         pattern_frame.pack(side=LEFT, padx=(padding / 2, 0))
@@ -657,10 +715,12 @@ class HDRMergeMaster(Frame):
         self.extension = Entry(pattern_frame, width=6)
         self.extension.pack(side=TOP, fill=X)
         self.extension.insert(0, self.saved_settings.get("tif_extension", ".tif"))
-        self.extension.bind('<Return>', self.save_extension)
+        self.extension.bind("<Return>", self.save_extension)
         self.buttons_to_disable.append(self.extension)
 
-        self.extension_label = Label(pattern_frame, text="(TIFF)", font=("TkDefaultFont", 8))
+        self.extension_label = Label(
+            pattern_frame, text="(TIFF)", font=("TkDefaultFont", 8)
+        )
         self.extension_label.pack(side=TOP)
 
         lbl_threads = Label(r2, text="Threads:")
@@ -668,22 +728,28 @@ class HDRMergeMaster(Frame):
         self.num_threads = Spinbox(r2, from_=1, to=9999999, width=2)
         self.num_threads.delete(0, "end")
         self.num_threads.insert(0, self.saved_settings.get("threads", "6"))
-        self.num_threads.bind('<Return>', self.save_threads)
+        self.num_threads.bind("<Return>", self.save_threads)
         self.num_threads.pack(side=LEFT, padx=(padding / 3, 0))
         self.buttons_to_disable.append(self.num_threads)
-        
+
         self.do_raw = BooleanVar()
         self.do_raw.set(self.saved_settings.get("do_raw", False))
         lbl_raw = Label(r2, text="RAW File:")
         lbl_raw.pack(side=LEFT, padx=(padding, 0))
         self.raw = Checkbutton(
-            r2, variable=self.do_raw, onvalue=True, offvalue=False,
-            command=self.toggle_raw_extension)
+            r2,
+            variable=self.do_raw,
+            onvalue=True,
+            offvalue=False,
+            command=self.toggle_raw_extension,
+        )
         self.raw.pack(side=LEFT)
         self.buttons_to_disable.append(self.raw)
-        
+
         # Disable RAW checkbox if RawTherapee CLI is not available
-        if not CONFIG.get("_optional_exes_available", {}).get("rawtherapee_cli_exe", False):
+        if not CONFIG.get("_optional_exes_available", {}).get(
+            "rawtherapee_cli_exe", False
+        ):
             self.raw.config(state="disabled")
             self.do_raw.set(False)
 
@@ -693,12 +759,16 @@ class HDRMergeMaster(Frame):
         self.do_align.set(self.saved_settings.get("do_align", False))
         lbl_align = Label(r2, text="Align:")
         lbl_align.pack(side=LEFT, padx=(padding, 0))
-        self.align = Checkbutton(r2, variable=self.do_align, onvalue=True, offvalue=False)
+        self.align = Checkbutton(
+            r2, variable=self.do_align, onvalue=True, offvalue=False
+        )
         self.align.pack(side=LEFT)
         self.buttons_to_disable.append(self.align)
-        
+
         # Disable Align checkbox if align_image_stack is not available
-        if not CONFIG.get("_optional_exes_available", {}).get("align_image_stack_exe", False):
+        if not CONFIG.get("_optional_exes_available", {}).get(
+            "align_image_stack_exe", False
+        ):
             self.align.config(state="disabled")
             self.do_align.set(False)
 
@@ -707,13 +777,12 @@ class HDRMergeMaster(Frame):
         lbl_recursive = Label(r2, text="Recursive:")
         lbl_recursive.pack(side=LEFT, padx=(padding, 0))
         self.recursive = Checkbutton(
-            r2, variable=self.do_recursive, onvalue=True, offvalue=False)
+            r2, variable=self.do_recursive, onvalue=True, offvalue=False
+        )
         self.recursive.pack(side=LEFT)
         self.buttons_to_disable.append(self.recursive)
 
-
-
-        self.btn_execute = Button(r2, text='Create HDRs', command=self.execute)
+        self.btn_execute = Button(r2, text="Create HDRs", command=self.execute)
         self.btn_execute.pack(side=RIGHT, fill=X, expand=True, padx=padding)
         self.buttons_to_disable.append(self.btn_execute)
 
@@ -721,7 +790,8 @@ class HDRMergeMaster(Frame):
         r3 = Frame(master=self)
 
         self.progress = ttk.Progressbar(
-            r3, orient=HORIZONTAL, length=100, mode='determinate')
+            r3, orient=HORIZONTAL, length=100, mode="determinate"
+        )
         self.progress.pack(fill=X, padx=padding, pady=(0, padding))
 
         r3.pack(fill=X, pady=(padding, 0))
@@ -739,7 +809,7 @@ class HDRMergeMaster(Frame):
         """Show file browser and select PP3 profile file."""
         path = filedialog.askopenfilename(
             title="Select PP3 Profile",
-            filetypes=[("PP3 files", "*.pp3"), ("All files", "*.*")]
+            filetypes=[("PP3 files", "*.pp3"), ("All files", "*.*")],
         )
         if path:
             self.pp3_file.delete(0, END)
@@ -768,7 +838,9 @@ class HDRMergeMaster(Frame):
         if not path:
             return
         if path in self.batch_folders:
-            messagebox.showinfo("Already Added", "This folder is already in the batch list.")
+            messagebox.showinfo(
+                "Already Added", "This folder is already in the batch list."
+            )
             return
         self.batch_folders.append(path)
         self.update_batch_display()
@@ -791,7 +863,9 @@ class HDRMergeMaster(Frame):
         """Remove all folders from batch list."""
         if not self.batch_folders:
             return
-        if messagebox.askyesno("Clear Batch", "Remove all folders from the batch list?"):
+        if messagebox.askyesno(
+            "Clear Batch", "Remove all folders from the batch list?"
+        ):
             self.batch_folders.clear()
             self.update_batch_display()
 
@@ -805,10 +879,10 @@ class HDRMergeMaster(Frame):
         folder = self.batch_folders[index]
         # self.input_folder.delete(0, END)
         # self.input_folder.insert(0, folder)
-        
+
         # Store the selected folder for profile dropdown
         self._selected_folder = folder
-        
+
         # Update profile dropdown for selected folder
         self.update_profile_dropdown(folder)
 
@@ -831,27 +905,27 @@ class HDRMergeMaster(Frame):
         profiles = CONFIG.get("pp3_profiles", [])
         if not profiles:
             return None
-        
+
         folder_name = pathlib.Path(folder_path).name.lower()
-        
+
         # First check if folder has a manually assigned profile
         if folder_path in self.folder_profiles:
             profile_name = self.folder_profiles[folder_path]
             for profile in profiles:
                 if profile.get("name") == profile_name:
                     return profile
-        
+
         # Then try to auto-match by folder key
         for profile in profiles:
             folder_key = profile.get("folder_key", "").lower()
             if folder_key and folder_key in folder_name:
                 return profile
-        
+
         # Fall back to default profile
         for profile in profiles:
             if profile.get("default", False):
                 return profile
-        
+
         # If no default, return first profile
         return profiles[0] if profiles else None
 
@@ -859,8 +933,8 @@ class HDRMergeMaster(Frame):
         """Update the profile dropdown with available profiles and current selection."""
         profiles = CONFIG.get("pp3_profiles", [])
         profile_names = [p.get("name", "Unnamed") for p in profiles]
-        self.profile_dropdown['values'] = profile_names
-        
+        self.profile_dropdown["values"] = profile_names
+
         if folder_path and folder_path in self.folder_profiles:
             self.profile_var.set(self.folder_profiles[folder_path])
         elif folder_path:
@@ -877,9 +951,9 @@ class HDRMergeMaster(Frame):
     def on_profile_change(self, event=None):
         """Update folder-to-profile mapping when dropdown selection changes."""
         # Get the folder from the stored selection, not from listbox
-        if not hasattr(self, '_selected_folder') or not self._selected_folder:
+        if not hasattr(self, "_selected_folder") or not self._selected_folder:
             return
-        
+
         folder = self._selected_folder
         selected_profile = self.profile_var.get()
 
@@ -897,12 +971,12 @@ class HDRMergeMaster(Frame):
         # Clear existing mappings and re-assign based on new profile keys
         old_mappings = dict(self.folder_profiles)
         self.folder_profiles.clear()
-        
+
         for folder in self.batch_folders:
             profile = self.get_profile_for_folder(folder)
             if profile:
                 self.folder_profiles[folder] = profile.get("name")
-        
+
         # Update the dropdown if a folder is selected
         if self._selected_folder:
             self.update_profile_dropdown(self._selected_folder)
@@ -918,16 +992,19 @@ class HDRMergeMaster(Frame):
         print("\nFolder %s: Processing RAW files with RawTherapee..." % folder.name)
 
         # Determine RAW file extension (default to .dng)
-        raw_extension = extension if extension.startswith('.') else '.' + extension
+        raw_extension = extension if extension.startswith(".") else "." + extension
         if not raw_extension:
-            raw_extension = '.dng'
+            raw_extension = ".dng"
 
         # Find all RAW files in the folder
-        glob_pattern = '*%s' % raw_extension
+        glob_pattern = "*%s" % raw_extension
         raw_files = list(folder.glob(glob_pattern))
 
         if not raw_files:
-            print("Folder %s: No RAW files found with pattern '%s'" % (folder.name, glob_pattern))
+            print(
+                "Folder %s: No RAW files found with pattern '%s'"
+                % (folder.name, glob_pattern)
+            )
             return None
 
         # Create output folder for TIFFs
@@ -943,8 +1020,10 @@ class HDRMergeMaster(Frame):
         # -c = Process files (must be last before files)
         cmd = [
             rawtherapee_cli_exe,
-            "-p", pp3_file,  # Apply PP3 profile
-            "-o", str(tif_folder),  # Output directory
+            "-p",
+            pp3_file,  # Apply PP3 profile
+            "-o",
+            str(tif_folder),  # Output directory
             "-t",  # TIFF output (16-bit uncompressed)
             "-Y",  # Overwrite existing files
             "-c",  # Convert mode (must be last before input files)
@@ -954,7 +1033,10 @@ class HDRMergeMaster(Frame):
         for raw_file in raw_files:
             cmd.append(str(raw_file))
 
-        print("Folder %s: Running RawTherapee CLI on %d RAW files..." % (folder.name, len(raw_files)))
+        print(
+            "Folder %s: Running RawTherapee CLI on %d RAW files..."
+            % (folder.name, len(raw_files))
+        )
         if verbose:
             print("Folder %s: Command: %s" % (folder.name, " ".join(cmd)))
 
@@ -970,7 +1052,10 @@ class HDRMergeMaster(Frame):
             print("Folder %s: Failed to process RAW files: %s" % (folder.name, ex))
             raise
 
-        print("Folder %s: RawTherapee processing complete. TIFFs saved to: %s" % (folder.name, tif_folder))
+        print(
+            "Folder %s: RawTherapee processing complete. TIFFs saved to: %s"
+            % (folder.name, tif_folder)
+        )
         return tif_folder
 
     def do_merge(
@@ -999,15 +1084,28 @@ class HDRMergeMaster(Frame):
         jpg_path = jpg_folder / exr_path.with_suffix(".jpg").name
 
         if exr_path.exists():
-            print("Folder %s: Bracket %d: Skipping, %s exists" % (folder.name, i, exr_path.relative_to(folder)))            
+            print(
+                "Folder %s: Bracket %d: Skipping, %s exists"
+                % (folder.name, i, exr_path.relative_to(folder))
+            )
             self.completed_sets_global += 1
-            print("Completed sets: %d/%d, %.1f%%" % (self.completed_sets_global, self.total_sets_global, (self.completed_sets_global / self.total_sets_global) * 100))
+            print(
+                "Completed sets: %d/%d, %.1f%%"
+                % (
+                    self.completed_sets_global,
+                    self.total_sets_global,
+                    (self.completed_sets_global / self.total_sets_global) * 100,
+                )
+            )
             return
 
         if self.do_align.get():
             if verbose:
-                print("Folder %s: Bracket %d: Aligning images %s" % (folder.name, i, [ Path(p.split("___")[0]).name for p in img_list]))
-            else :
+                print(
+                    "Folder %s: Bracket %d: Aligning images %s"
+                    % (folder.name, i, [Path(p.split("___")[0]).name for p in img_list])
+                )
+            else:
                 print("Folder %s: Bracket %d: Aligning images" % (folder.name, i))
 
             align_folder.mkdir(parents=True, exist_ok=True)
@@ -1025,14 +1123,20 @@ class HDRMergeMaster(Frame):
             for j, img in enumerate(img_list):
                 new_img_list.append(
                     (
-                        align_folder / "align_{}_{}.tif___{}".format(i, str(j).zfill(4), img_list[j].split("___")[-1])
+                        align_folder
+                        / "align_{}_{}.tif___{}".format(
+                            i, str(j).zfill(4), img_list[j].split("___")[-1]
+                        )
                     ).as_posix()
                 )
             run_subprocess_with_prefix(cmd, i, "align", out_folder)
             img_list = new_img_list
 
         if verbose:
-            print("Folder %s: Bracket %d: Merging %s" % (folder.name, i, [ Path(p.split("___")[0]).name for p in img_list]))
+            print(
+                "Folder %s: Bracket %d: Merging %s"
+                % (folder.name, i, [Path(p.split("___")[0]).name for p in img_list])
+            )
         else:
             print("Folder %s: Bracket %d: Merging" % (folder.name, i))
 
@@ -1070,19 +1174,40 @@ class HDRMergeMaster(Frame):
         ]
         run_subprocess_with_prefix(cmd, i, "luminance", out_folder)
         if verbose:
-            print("Folder %s: Bracket %d: Complete %s" % (folder.name, i, [ Path(p.split("___")[0]).name for p in img_list]))
+            print(
+                "Folder %s: Bracket %d: Complete %s"
+                % (folder.name, i, [Path(p.split("___")[0]).name for p in img_list])
+            )
         else:
             print("Folder %s: Bracket %d: Complete" % (folder.name, i))
         self.completed_sets_global += 1
-        print("Completed sets: %d/%d, %.1f%%" % (self.completed_sets_global, self.total_sets_global, (self.completed_sets_global / self.total_sets_global) * 100))
+        print(
+            "Completed sets: %d/%d, %.1f%%"
+            % (
+                self.completed_sets_global,
+                self.total_sets_global,
+                (self.completed_sets_global / self.total_sets_global) * 100,
+            )
+        )
 
-    def process_folder(self, folder: pathlib.Path, blender_exe: str, luminance_cli_exe: str,
-                       align_image_stack_exe: str, merge_blend: pathlib.Path, merge_py: pathlib.Path,
-                       original_extension: str, do_align: bool, do_raw: bool, rawtherapee_cli_exe: str,
-                       pp3_file: str, executor: ThreadPoolExecutor) -> tuple:
+    def process_folder(
+        self,
+        folder: pathlib.Path,
+        blender_exe: str,
+        luminance_cli_exe: str,
+        align_image_stack_exe: str,
+        merge_blend: pathlib.Path,
+        merge_py: pathlib.Path,
+        original_extension: str,
+        do_align: bool,
+        do_raw: bool,
+        rawtherapee_cli_exe: str,
+        pp3_file: str,
+        executor: ThreadPoolExecutor,
+    ) -> tuple:
         """Process a single folder and return (num_brackets, num_sets, threads, error)."""
         out_folder = folder / "Merged"
-        
+
         # If RAW processing is enabled, process RAW files first
         if do_raw and pp3_file and pathlib.Path(pp3_file).exists():
             tif_folder = self.process_raw_with_rawtherapee(
@@ -1097,10 +1222,10 @@ class HDRMergeMaster(Frame):
                 return (0, 0, [], "RAW processing failed")
         else:
             extension = original_extension
-        
+
         glob = extension
-        if '*' not in glob:
-            glob = '*%s' % glob
+        if "*" not in glob:
+            glob = "*%s" % glob
         files = list(folder.glob(glob))
 
         if not files:
@@ -1121,9 +1246,13 @@ class HDRMergeMaster(Frame):
         # print("Exifs:", json.dumps(exifs, indent=2))
         if verbose:
             print("Exifs:\n", str(exifs).replace("}, {", "},\n{"))
-        evs = [ev_diff({"shutter_speed": 1000000000, "aperture": 0.1,
-                       "iso": 1000000000000}, e) for e in exifs]
-        evs = [ev-min(evs) for ev in evs]
+        evs = [
+            ev_diff(
+                {"shutter_speed": 1000000000, "aperture": 0.1, "iso": 1000000000000}, e
+            )
+            for e in exifs
+        ]
+        evs = [ev - min(evs) for ev in evs]
 
         filter_used = "None"  # self.filter.get().replace(' ', '').replace('+', '_')  # Depreciated
 
@@ -1132,10 +1261,22 @@ class HDRMergeMaster(Frame):
         for i, s in enumerate(sets):
             img_list = []
             for ii, img in enumerate(s):
-                img_list.append(img.as_posix()+'___'+str(evs[ii]))
+                img_list.append(img.as_posix() + "___" + str(evs[ii]))
 
-            t = executor.submit(self.do_merge, blender_exe, merge_blend, merge_py, exifs, out_folder,
-                                filter_used, i, img_list, folder, luminance_cli_exe, align_image_stack_exe)
+            t = executor.submit(
+                self.do_merge,
+                blender_exe,
+                merge_blend,
+                merge_py,
+                exifs,
+                out_folder,
+                filter_used,
+                i,
+                img_list,
+                folder,
+                luminance_cli_exe,
+                align_image_stack_exe,
+            )
             threads.append((i, t))
 
         return (brackets, len(sets), threads, None)
@@ -1162,9 +1303,13 @@ class HDRMergeMaster(Frame):
             # Update the extension settings based on current RAW state
             if do_raw:
                 CONFIG["gui_settings"]["raw_extension"] = extension
-                CONFIG["gui_settings"]["tif_extension"] = self.saved_settings.get("tif_extension", ".tif")
+                CONFIG["gui_settings"]["tif_extension"] = self.saved_settings.get(
+                    "tif_extension", ".tif"
+                )
             else:
-                CONFIG["gui_settings"]["raw_extension"] = self.saved_settings.get("raw_extension", ".dng")
+                CONFIG["gui_settings"]["raw_extension"] = self.saved_settings.get(
+                    "raw_extension", ".dng"
+                )
                 CONFIG["gui_settings"]["tif_extension"] = extension
 
             CONFIG["gui_settings"]["threads"] = self.num_threads.get()
@@ -1174,20 +1319,22 @@ class HDRMergeMaster(Frame):
 
             save_config(CONFIG)
 
-            original_extension = extension  # Keep track of original extension for RAW processing
+            original_extension = (
+                extension  # Keep track of original extension for RAW processing
+            )
 
             # Validate optional features
             optional_exes_available = CONFIG.get("_optional_exes_available", {})
-            
+
             if do_raw and not optional_exes_available.get("rawtherapee_cli_exe", False):
                 messagebox.showerror(
                     "RawTherapee Not Available",
                     "RAW processing is enabled but RawTherapee CLI is not configured or not found!\n\n"
-                    "Please configure the RawTherapee CLI path in config.json."
+                    "Please configure the RawTherapee CLI path in config.json.",
                 )
                 for btn in self.buttons_to_disable:
-                    btn['state'] = 'normal'
-                self.btn_execute['text'] = "Create HDRs"
+                    btn["state"] = "normal"
+                self.btn_execute["text"] = "Create HDRs"
                 return
 
             # Validate RAW processing settings if enabled
@@ -1198,25 +1345,27 @@ class HDRMergeMaster(Frame):
                     messagebox.showerror(
                         "PP3 Profile Required",
                         "RAW processing is enabled but no PP3 profiles are configured!\n\n"
-                        "Please add at least one PP3 profile using 'Manage Profiles...'."
+                        "Please add at least one PP3 profile using 'Manage Profiles...'.",
                     )
                     for btn in self.buttons_to_disable:
-                        btn['state'] = 'normal'
-                    self.btn_execute['text'] = "Create HDRs"
+                        btn["state"] = "normal"
+                    self.btn_execute["text"] = "Create HDRs"
                     return
                 # Change extension to .tif for RAW processing (output from RawTherapee)
                 extension = ".tif"
 
             # Validate Align feature if enabled
-            if do_align and not optional_exes_available.get("align_image_stack_exe", False):
+            if do_align and not optional_exes_available.get(
+                "align_image_stack_exe", False
+            ):
                 messagebox.showerror(
                     "Align Image Stack Not Available",
                     "Align is enabled but align_image_stack is not configured or not found!\n\n"
-                    "Please configure the align_image_stack path in config.json."
+                    "Please configure the align_image_stack path in config.json.",
                 )
                 for btn in self.buttons_to_disable:
-                    btn['state'] = 'normal'
-                self.btn_execute['text'] = "Create HDRs"
+                    btn["state"] = "normal"
+                self.btn_execute["text"] = "Create HDRs"
                 return
 
             # Determine folders to process
@@ -1228,18 +1377,36 @@ class HDRMergeMaster(Frame):
                 for batch_folder_path in self.batch_folders:
                     batch_folder = pathlib.Path(batch_folder_path)
                     if not batch_folder.exists():
-                        print("Warning: Batch folder does not exist: %s" % batch_folder_path)
+                        print(
+                            "Warning: Batch folder does not exist: %s"
+                            % batch_folder_path
+                        )
                         continue
                     if do_recursive:
                         # Find all subfolders containing matching files
                         glob = extension
-                        if '*' not in glob:
-                            glob = '*%s' % glob
+                        if "*" not in glob:
+                            glob = "*%s" % glob
                         for f in batch_folder.rglob(glob):
                             parent = f.parent
-                            if parent not in folders_to_process and parent != batch_folder:
+                            if (
+                                parent not in folders_to_process
+                                and parent != batch_folder
+                            ):
                                 folders_to_process.append(parent)
-                        print("Batch folder '%s' (recursive): Found %d subfolders" % (batch_folder_path, len([p for p in folders_to_process if str(p).startswith(str(batch_folder))])))
+                        print(
+                            "Batch folder '%s' (recursive): Found %d subfolders"
+                            % (
+                                batch_folder_path,
+                                len(
+                                    [
+                                        p
+                                        for p in folders_to_process
+                                        if str(p).startswith(str(batch_folder))
+                                    ]
+                                ),
+                            )
+                        )
                     else:
                         folders_to_process.append(batch_folder)
                 print("Batch mode: Processing %d folders" % len(folders_to_process))
@@ -1248,21 +1415,32 @@ class HDRMergeMaster(Frame):
             else:
                 folder = pathlib.Path(self.input_folder.get())
                 if not folder.exists():
-                    messagebox.showerror("Folder does not exist", "The input path you have selected does not exist!")
+                    messagebox.showerror(
+                        "Folder does not exist",
+                        "The input path you have selected does not exist!",
+                    )
                     return
 
                 # Determine folders to process
                 if do_recursive:
                     # Find all subfolders containing matching files
                     glob = extension
-                    if '*' not in glob:
-                        glob = '*%s' % glob
+                    if "*" not in glob:
+                        glob = "*%s" % glob
                     for f in folder.rglob(glob):
                         parent = f.parent
                         if parent not in folders_to_process and parent != folder:
                             folders_to_process.append(parent)
-                    print("Recursive mode: Found %d subfolders" % len(folders_to_process))
-                    print("Subfolders to process: %s" % [str(subfolder.relative_to(folder)) for subfolder in folders_to_process])
+                    print(
+                        "Recursive mode: Found %d subfolders" % len(folders_to_process)
+                    )
+                    print(
+                        "Subfolders to process: %s"
+                        % [
+                            str(subfolder.relative_to(folder))
+                            for subfolder in folders_to_process
+                        ]
+                    )
                 else:
                     folders_to_process.append(folder)
 
@@ -1276,23 +1454,23 @@ class HDRMergeMaster(Frame):
             # First pass: calculate total sets across all folders for progress tracking
             total_sets_global = 0
             folder_info = []
-            
+
             # Determine the file extension to look for in the first pass
             if do_raw:
                 # For RAW processing, look for RAW files in the original folders
                 raw_extension = self.extension.get()
-                if not raw_extension.startswith('.'):
-                    raw_extension = '.' + raw_extension
-                if not raw_extension or raw_extension == '.':
-                    raw_extension = '.dng'
+                if not raw_extension.startswith("."):
+                    raw_extension = "." + raw_extension
+                if not raw_extension or raw_extension == ".":
+                    raw_extension = ".dng"
                 first_pass_extension = raw_extension
             else:
                 first_pass_extension = extension
-                
+
             for proc_folder in folders_to_process:
                 glob = first_pass_extension
-                if '*' not in glob:
-                    glob = '*%s' % glob
+                if "*" not in glob:
+                    glob = "*%s" % glob
                 files = list(proc_folder.glob(glob))
                 if files:
                     exifs = []
@@ -1315,30 +1493,34 @@ class HDRMergeMaster(Frame):
                         messagebox.showerror(
                             "No matching files",
                             "No RAW files found in any of the batch folders!\n\n"
-                            "Please check that the folders contain RAW images with the pattern: '%s'" % first_pass_extension
+                            "Please check that the folders contain RAW images with the pattern: '%s'"
+                            % first_pass_extension,
                         )
                     else:
                         messagebox.showerror(
                             "No matching files",
                             "No matching files found in any of the batch folders!\n\n"
-                            "Please check that the folders contain images with the pattern: '%s'" % extension
+                            "Please check that the folders contain images with the pattern: '%s'"
+                            % extension,
                         )
                 else:
                     if do_raw:
                         messagebox.showerror(
                             "No matching files",
                             "No RAW files found in the input folder!\n\n"
-                            "Please check that the folder contains RAW images with the pattern: '%s'" % first_pass_extension
+                            "Please check that the folder contains RAW images with the pattern: '%s'"
+                            % first_pass_extension,
                         )
                     else:
                         messagebox.showerror(
                             "No matching files",
                             "No matching files found in the input folder!\n\n"
-                            "Please check that the folder contains images with the pattern: '%s'" % extension
+                            "Please check that the folder contains images with the pattern: '%s'"
+                            % extension,
                         )
                 for btn in self.buttons_to_disable:
-                    btn['state'] = 'normal'
-                self.btn_execute['text'] = "Create HDRs"
+                    btn["state"] = "normal"
+                self.btn_execute["text"] = "Create HDRs"
                 return
 
             self.total_sets_global = total_sets_global
@@ -1350,23 +1532,34 @@ class HDRMergeMaster(Frame):
             total_sets = 0
             all_threads = []
 
-            with ThreadPoolExecutor(max_workers=int(self.num_threads.get())) as executor:
+            with ThreadPoolExecutor(
+                max_workers=int(self.num_threads.get())
+            ) as executor:
                 # Submit all folder tasks
                 for proc_folder, brackets, sets in folder_info:
                     # Get folder-specific PP3 profile
                     profile = self.get_profile_for_folder(str(proc_folder))
                     folder_pp3_file = profile.get("path", "") if profile else ""
-                    
+
                     brackets, sets, threads, error = self.process_folder(
-                        proc_folder, blender_exe, luminance_cli_exe,
-                        align_image_stack_exe, merge_blend, merge_py,
-                        original_extension, do_align, do_raw, rawtherapee_cli_exe,
-                        folder_pp3_file, executor)
+                        proc_folder,
+                        blender_exe,
+                        luminance_cli_exe,
+                        align_image_stack_exe,
+                        merge_blend,
+                        merge_py,
+                        original_extension,
+                        do_align,
+                        do_raw,
+                        rawtherapee_cli_exe,
+                        folder_pp3_file,
+                        executor,
+                    )
                     bracket_list.append(brackets)
                     total_sets += sets
                     all_threads.extend(threads)
                     if error:
-                        print("Error processing %s: %s" % (proc_folder , error))
+                        print("Error processing %s: %s" % (proc_folder, error))
 
                 # Wait for all tasks to complete and update progress
                 completed = set()
@@ -1382,20 +1575,25 @@ class HDRMergeMaster(Frame):
                         try:
                             tt.result()
                         except Exception as ex:
-                            print('Bracket %d: Exception - %s' % (bracket_idx, ex))
+                            print("Bracket %d: Exception - %s" % (bracket_idx, ex))
 
                         completed.add(bracket_idx)
                         # self.completed_sets_global += 1
                         # print("Completed sets: %d/%d, %.1f%%" % (self.completed_sets_global, self.total_sets_global, (self.completed_sets_global / self.total_sets_global) * 100))
 
                     # Update global progress
-                    progress = (self.completed_sets_global / self.total_sets_global) * 100
-                    self.progress['value'] = int(progress)
+                    progress = (
+                        self.completed_sets_global / self.total_sets_global
+                    ) * 100
+                    self.progress["value"] = int(progress)
 
             print("Done!!!")
             folder_end_time = datetime.now()
             folder_duration = (folder_end_time - folder_start_time).total_seconds()
-            print("Total time: %.1f seconds (%.1f minutes)" % (folder_duration, folder_duration/60))
+            print(
+                "Total time: %.1f seconds (%.1f minutes)"
+                % (folder_duration, folder_duration / 60)
+            )
             print("Alignment: %s" % ("Yes" if do_align else "No"))
             print("Images per bracket: %s" % bracket_list)
             print("Total sets processed: %d" % total_sets)
