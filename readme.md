@@ -8,13 +8,18 @@ A script that uses Blender's compositor to reliably merge exposure brackets to 3
 
 ## Installation
 
-Requires:
+### Requires:
 
-* [Blender 2.79](http://download.blender.org/release/Blender2.79/)
-* [Luminance HDR v2.4.0](https://sourceforge.net/projects/qtpfsgui/files/luminance/2.4.0/) (later versions will not work)
-* [Hugin 2021](https://hugin.sourceforge.io/download/)
+* [Blender 4.5 LTS](http://download.blender.org/release/Blender2.79/)
+* [Luminance HDR v2.6.1](https://sourceforge.net/projects/qtpfsgui/files/luminance/)
+
+### Optional:
+
+* [Hugin 2021](https://hugin.sourceforge.io/download/) (aligning images)
+* [Rawtherapee](https://rawtherapee.com/downloads/5.12/) (processing from raw files)
 
 1. Install the required software above.
+2. If the optional software is not installed, the relevant options will be disabled
 2. [Download the latest release](https://github.com/gregzaal/HDR-Merge-Master/releases) and run `hdr_merge_master.exe`
 
 ### Run From Source (optional)
@@ -42,6 +47,7 @@ Running the script for the first time will prompt you to edit `exe_paths.json` t
     "blender_exe": "C:\\Program Files\\Blender 2.79\\blender.exe",
     "luminance_cli_exe": "C:\\Program Files\\LuminanceHDR\\luminance-hdr-cli.exe",
     "align_image_stack_exe": "C:\\Program Files\\Hugin\\bin\\align_image_stack.exe"
+    "rawtherapee_cli_exe": "C://Program Files//RawTherapee//5.12//rawtherapee-cli.exe"
 }
 ```
 
@@ -49,8 +55,8 @@ Note: Do not use the `align_image_stack.exe` that comes with LuminanceHDR, as th
 
 Then:
 
-1. Select a folder that contains your full set of exposure brackets (see *Example Folder Structure* below) You can now add multiple folders to the input folders for batch processing.
-2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but **RAW files from your camera will not work**. I typically do some minor tweaks to the RAW files in Lightroom first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script.
+1. Select a folder that contains your full set of exposure brackets (see *Example Folder Structure* below). You can now add multiple folders to the input folders for batch processing.
+2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but if you want to use RAW files from your camera, **you need to install RawTherapee and enable the RAW option in the UI**. Make sure to match the pattern to your camera's output file format. I typically do some minor tweaks to the RAW files in Lightroom first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script.
 3. Choose the number of threads (the number of simultaneous bracketed exposures to merge). Use as many threads as you can without running out of RAM or freezing your computer. In my experience 6 threads usually works fine for 32 GB RAM.
 4. Choose whether to align the images before merging.
 5. Choose whether you want the scrpit to look for subfolders inside the selected folders recursivly.
