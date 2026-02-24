@@ -9,7 +9,7 @@ set "OUT_DIR=%DIST_ROOT%\hdr_merge_master.dist"
 set "VERSION=dev"
 set "ZIP_PATH=%DIST_ROOT%\hdr_merge_master_v%VERSION%.zip"
 
-for /f "tokens=2 delims==" %%v in ('findstr /b "__version__" "%MAIN_SCRIPT%"') do set "VERSION=%%v"
+for /f "tokens=2 delims==" %%v in ('findstr /b "VERSION" "%MAIN_SCRIPT%"') do set "VERSION=%%v"
 set "VERSION=%VERSION: =%"
 set "VERSION=%VERSION:"=%"
 set "VERSION=%VERSION:'=%"

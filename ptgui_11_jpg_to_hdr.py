@@ -7,7 +7,7 @@ import collections
 
 f = sys.argv[1]
 # f = "F:\PGT\26-02-27 UCD\Library 2\Library_02_o.pts"  # testing
-verbose = True
+VERBOSE = True
 
 def go(f):
     filename, p_ext = os.path.splitext(os.path.basename(f))
@@ -34,7 +34,7 @@ def go(f):
     data[project_key]["outputsize"]["mode"] = "fixed"
     data[project_key]["outputsize"]["pixels"] = 2.097152e8
 
-    if verbose:
+    if VERBOSE:
         print("keys updated")
 
     base_dir = os.path.dirname(f)
@@ -48,7 +48,7 @@ def go(f):
             real_fp = os.path.join(base_dir, new_fp)
             if os.path.exists(real_fp):
                 break
-        if verbose:
+        if VERBOSE:
             print("file path updated: ", fp, "->", new_fp)
         fp = new_fp
         i["images"][0]["filename"] = fp
@@ -57,7 +57,7 @@ def go(f):
     f_old = os.path.join(folder, filename+"_t"+p_ext)
 
     os.rename(f, f_old)
-    if verbose:
+    if VERBOSE:
         print("files paths updated")
 
     with open(f, 'w') as fw:
