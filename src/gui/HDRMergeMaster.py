@@ -1,12 +1,9 @@
-"""
-HDR Merge Master - GUI Module
+# HDR Merge Master - GUI Module
 
-Contains the GUI interface for HDR Merge Master application.
-All processing logic is delegated to process modules.
-"""
+# Contains the GUI interface for HDR Merge Master application.
+# All processing logic is delegated to process modules.
 
 import pathlib
-import threading
 from tkinter import (
     BOTH,
     END,
@@ -39,10 +36,11 @@ from src.config import CONFIG
 from utils.save_config import save_config
 from gui.PP3ProfileManager import PP3ProfileManager
 from process.executor import execute_hdr_processing
+from constants import padding
 
 
 class HDRMergeMaster(Frame):
-    """Main GUI frame for HDR Merge Master application."""
+    # Main GUI frame for HDR Merge Master application.
 
     def __init__(self, master=None):
         Frame.__init__(self, master)
@@ -60,9 +58,9 @@ class HDRMergeMaster(Frame):
         self.initUI()
 
     def initUI(self):
-        """Initialize the user interface."""
+        # Initialize the user interface.
         self.master.title("HDR Merge Master " + VERSION)
-        self.master.geometry("600x225")
+        self.master.geometry("600x250")
         self.pack(fill=BOTH, expand=True)
 
         padding = 8
@@ -232,15 +230,26 @@ class HDRMergeMaster(Frame):
 
         r2.pack(fill=X, pady=(padding, 0))
 
-        # ========== Progress Bar ==========
+        # ========== Setup and Settings Buttons ==========
+
         r3 = Frame(master=self)
 
+        btn_setup_dialog = Button(
+            r3, text="Setup", command=self.open_setup_dialog
+        )
+        btn_setup_dialog.pack(side=LEFT, padx=(padding, padding))
+
+        r3.pack(fill=X, pady=(padding, 0))
+
+        # ========== Progress Bar ==========
+        r4 = Frame(master=self)
+
         self.progress = ttk.Progressbar(
-            r3, orient=HORIZONTAL, length=100, mode="determinate"
+            r4, orient=HORIZONTAL, length=100, mode="determinate"
         )
         self.progress.pack(fill=X, padx=padding, pady=(0, padding))
 
-        r3.pack(fill=X, pady=(padding, 0))
+        r4.pack(fill=X, pady=(padding, 0))
 
     def toggle_raw_extension(self):
         """Toggle extension field between RAW and TIFF extensions."""
@@ -385,6 +394,19 @@ class HDRMergeMaster(Frame):
     def open_profile_manager(self):
         """Open the PP3 Profile Manager dialog."""
         PP3ProfileManager(self, CONFIG, save_config)
+
+    def open_setup_dialog(self):
+        """Open the Setup dialog for configuring executable paths."""
+        from src.gui.SetupDialog import SetupDialog
+
+        def on_setup_save(config):
+            save_config(config)
+            # After saving new config, we should check if any optional executables became available/unavailable
+            CONFIG.update(config)
+            self.refresh_folder_profiles()  # Refresh profiles in case setup changes affect them
+
+        setup_dialog = SetupDialog(self.master, CONFIG, on_setup_save)
+        setup_dialog.grab_set()  # Make the setup dialog modal
 
     def refresh_folder_profiles(self):
         """Refresh folder-to-profile mappings after profiles are modified."""

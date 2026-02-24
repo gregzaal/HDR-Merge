@@ -1,8 +1,11 @@
 ## Small changes:
 
-- [ ] Dialog to select exe files for required programs
+- [x] Dialog to select exe files for required programs
 - added default file paths for both windows and linux
-- [ ] Ask to download required programs (Blender, etc.) on first use
+- added a setup dialog, complete with download links. This will open on first run, or can be accessed later throught the setup button
+- [x] Ask to download required programs (Blender, etc.) on first use
+- links and message included in the setup dialog
+- do we need to automate downloading the programs?
 - [x] Remember last used threads and other values in config.json
 - [x] Store exe_paths in config.json
 - [x] Queue/batch processing

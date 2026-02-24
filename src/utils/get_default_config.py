@@ -7,7 +7,7 @@ def get_default_config() -> dict:
         # Windows default paths
         default_exe_paths = {
             "align_image_stack_exe": "C:\\Program Files\\Hugin\\bin\\align_image_stack.exe",
-            "blender_exe": "C:\\Program Files\\Blender Foundation\\Blender 3.4\\blender.exe",
+            "blender_exe": "C:\\Program Files\\Blender Foundation\\Blender 4.5\\blender.exe",
             "luminance_cli_exe": "C:\\Program Files\\Luminance HDR\\v.2.6.0\\luminance-hdr-cli.exe",
             "rawtherapee_cli_exe": "C:\\Program Files\\RawTherapee\\5.12\\rawtherapee-cli.exe",
         }

@@ -16,3 +16,13 @@ else:
 from utils.get_config import get_config
 
 CONFIG = get_config(SCRIPT_DIR)
+
+
+def reload_config() -> dict:
+    """Reload configuration from config.json.
+    
+    Returns:
+        dict: Updated configuration dictionary
+    """
+    from utils.get_config import get_config
+    return get_config(SCRIPT_DIR)
