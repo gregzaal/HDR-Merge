@@ -12,7 +12,7 @@
  - command line arguments updated to work with Luminance 2.6 
  - works with the latest rawtherapee version  
 - [ ] Define range of valid Blender versions, show warning if invalid
- - works on latest Blender LTS version (4.5) as intended  
+ - works on latest Blender LTS version (4.5) as intended
 - [ ] Better error handling in general, too many bug reports of people saying "it doesn't work" even when the issue is simple
 - [x] Added raw file processing with rawtherapee-cli 
 - [ ] Allow for inconsistant exposure brackets - currently the first exposure set determines how many images there are per set, but it should be possible to support exposure sets with varying numbers of images.

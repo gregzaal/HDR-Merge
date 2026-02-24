@@ -3,8 +3,9 @@
 A script that uses Blender's compositor to reliably merge exposure brackets to 32-bit EXR files in bulk.
 
 <p align="center">
-<img width="614" height="220" alt="screenshot" src="https://github.com/user-attachments/assets/3caa43d4-d415-4a4c-8e44-ee2b826c5aec" />
+<img width="628" height="288" alt="screenshot" src="https://github.com/user-attachments/assets/7984674a-d7fb-4256-b9d6-ae1ca306521a" />
 </p>
+
 
 ## Installation
 
