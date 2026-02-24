@@ -1,4 +1,8 @@
-[ ] Download required programs (Blender, etc.) on first use
-[ ] Store exe_paths in config.json
-[ ] Remember last used threads and other values in config.json
-[ ] Queue/batch processing
+- [ ] Ask to download required programs (Blender, etc.) on first use
+- [ ] Remember last used threads and other values in config.json
+- [ ] Store exe_paths in config.json
+- [ ] Queue/batch processing
+- [ ] Update to latest required programs (Blender, etc.) for performance benefits
+- [ ] Define range of valid Blender versions, show warning if invalid
+- [ ] Better error handling in general, too many bug reports of people saying "it doesn't work" even when the issue is simple
+- [ ] De-ghosting options
