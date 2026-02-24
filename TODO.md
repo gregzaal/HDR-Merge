@@ -6,10 +6,10 @@
 - [x] Remember last used threads and other values in config.json
 - [x] Store exe_paths in config.json
 - [x] Queue/batch processing
-- [ ] Update to latest required programs (Blender, etc.) for performance benefits
+- [x] Update to latest required programs (Blender, etc.) for performance benefits
  - works on latest Blender LTS version (4.5) as intended  
  - works on the latest align image stack from ptgui as intended  
- - doesn't work with the latest luminance-hdr-cli version, the command line arguments need to be updated  
+ - command line arguments updated to work with Luminance 2.6 
  - works with the latest rawtherapee version  
 - [ ] Define range of valid Blender versions, show warning if invalid
  - works on latest Blender LTS version (4.5) as intended  

@@ -97,7 +97,7 @@ def get_default_config() -> dict:
         default_exe_paths = {
             "align_image_stack_exe": "C:\\Program Files\\Hugin\\bin\\align_image_stack.exe",
             "blender_exe": "C:\\Program Files\\Blender Foundation\\Blender 3.4\\blender.exe",
-            "luminance_cli_exe": "C:\\Program Files (x86)\\Luminance HDR\\luminance-hdr-cli.exe",
+            "luminance_cli_exe": "C:\\Program Files\\Luminance HDR\\v.2.6.0\\luminance-hdr-cli.exe",
             "rawtherapee_cli_exe": "C:\\Program Files\\RawTherapee\\5.12\\rawtherapee-cli.exe",
         }
     else:
@@ -1165,7 +1165,7 @@ class HDRMergeMaster(Frame):
             luminance_cli_exe,
             "-l",
             exr_path.as_posix(),
-            "-t",
+            "--tmo",
             "reinhard02",
             "-q",
             "98",
