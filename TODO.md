@@ -1,3 +1,4 @@
+- [ ] Dialog to select exe files for required programs
 - [ ] Ask to download required programs (Blender, etc.) on first use
 - [ ] Remember last used threads and other values in config.json
 - [ ] Store exe_paths in config.json
