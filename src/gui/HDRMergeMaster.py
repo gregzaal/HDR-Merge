@@ -3,6 +3,7 @@
 # Contains the GUI interface for HDR Merge Master application.
 # All processing logic is delegated to process modules.
 
+import tkinter as tk
 import pathlib
 from tkinter import (
     BOTH,
@@ -21,7 +22,6 @@ from tkinter import (
     Entry,
     Frame,
     Label,
-    Listbox,
     Scrollbar,
     Spinbox,
     StringVar,
@@ -34,9 +34,10 @@ from tkinter import (
 from constants import VERSION
 from src.config import CONFIG
 from utils.save_config import save_config
-from gui.PP3ProfileManager import PP3ProfileManager
+from src.gui.PP3ProfileManager import PP3ProfileManager
+from src.gui.SetupDialog import SetupDialog
+from process.folder_analyzer import analyze_folder, find_subfolders
 from process.executor import execute_hdr_processing
-from constants import padding
 
 
 class HDRMergeMaster(Frame):
@@ -49,6 +50,7 @@ class HDRMergeMaster(Frame):
         self.completed_sets_global = 0
         self.batch_folders = []
         self.folder_profiles = {}  # Maps folder path to profile name
+        self.folder_stats = {}  # Maps folder path to (brackets, sets) tuple
         self._selected_folder = None  # Track currently selected folder
         self._processing_thread = None  # Track processing thread
 
@@ -60,7 +62,7 @@ class HDRMergeMaster(Frame):
     def initUI(self):
         # Initialize the user interface.
         self.master.title("HDR Merge Master " + VERSION)
-        self.master.geometry("600x250")
+        self.master.geometry("750x300")
         self.pack(fill=BOTH, expand=True)
 
         padding = 8
@@ -72,35 +74,52 @@ class HDRMergeMaster(Frame):
         except TclError:
             pass
 
-        # ========== Batch Folders ==========
+        # ========== Batch Folders (Treeview Table) ==========
         r_batch = Frame(master=self)
 
-        lbl_batch = Label(r_batch, width=10, text="Input Folders:")
+        lbl_batch = Label(r_batch, width=12, text="Input Folders:")
         lbl_batch.pack(side=LEFT, fill=Y, padx=(padding, 0))
 
-        # Listbox with scrollbar for batch folders
-        batch_frame = Frame(r_batch)
-        batch_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=padding)
+        # Treeview table with scrollbar
+        table_frame = Frame(r_batch)
+        table_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=padding)
 
-        self.batch_listbox = Listbox(batch_frame, height=4, selectmode=SINGLE)
-        self.batch_listbox.pack(side=LEFT, fill=BOTH, expand=True)
-        self.batch_listbox.bind("<<ListboxSelect>>", self.on_batch_select)
+        # Create Treeview with columns
+        columns = ("folder", "profile", "brackets", "sets")
+        self.batch_table = ttk.Treeview(
+            table_frame,
+            columns=columns,
+            selectmode="extended",
+            height=5,
+        )
 
-        batch_scrollbar = Scrollbar(batch_frame, orient=VERTICAL)
-        batch_scrollbar.pack(side=RIGHT, fill=BOTH)
-        self.batch_listbox.config(yscrollcommand=batch_scrollbar.set)
-        batch_scrollbar.config(command=self.batch_listbox.yview)
+        # Configure columns
+        self.batch_table.column("#0", width=0, stretch=tk.NO, minwidth=0)  # Hidden column
+        self.batch_table.column("folder", anchor=tk.W, width=300, minwidth=150)
+        self.batch_table.column("profile", anchor=tk.W, width=120, minwidth=80)
+        self.batch_table.column("brackets", anchor=tk.W, width=60, minwidth=40)
+        self.batch_table.column("sets", anchor=tk.W, width=50, minwidth=30)
 
-        self.update_batch_display()
+        # Configure headings
+        self.batch_table.heading("#0", text="", anchor=tk.W)
+        self.batch_table.heading("folder", text="Folder", anchor=tk.W)
+        self.batch_table.heading("profile", text="Profile", anchor=tk.W)
+        self.batch_table.heading("brackets", text="Brackets", anchor=tk.W)
+        self.batch_table.heading("sets", text="Sets", anchor=tk.W)
+
+        # Add scrollbar
+        table_scrollbar = Scrollbar(table_frame, orient=VERTICAL, command=self.batch_table.yview)
+        table_scrollbar.pack(side=RIGHT, fill=BOTH)
+        self.batch_table.configure(yscrollcommand=table_scrollbar.set)
+
+        self.batch_table.pack(side=LEFT, fill=BOTH, expand=True)
+        self.batch_table.bind("<<TreeviewSelect>>", self.on_batch_select)
 
         # Batch buttons (stacked vertically)
         btn_batch_frame = Frame(r_batch)
         btn_batch_frame.pack(
             side=LEFT,
-            padx=(
-                padding / 2,
-                padding,
-            ),
+            padx=(padding / 2, padding),
         )
 
         btn_add = Button(
@@ -118,12 +137,24 @@ class HDRMergeMaster(Frame):
         )
         btn_clear.pack(side=TOP, fill=Y, pady=(2, 0))
 
+        # Recursive checkbox
+        self.do_recursive = BooleanVar()
+        self.do_recursive.set(self.saved_settings.get("do_recursive", False))
+        self.recursive_check = Checkbutton(
+            btn_batch_frame,
+            variable=self.do_recursive,
+            onvalue=True,
+            offvalue=False,
+            text="Recursive",
+        )
+        self.recursive_check.pack(side=TOP, pady=(4, 0))
+
         r_batch.pack(fill=BOTH, pady=(padding, 0))
 
         # ========== Profile Selection ==========
         r_profile = Frame(master=self)
 
-        lbl_profile = Label(r_profile, width=10, text="PP3 Profile:")
+        lbl_profile = Label(r_profile, width=12, text="PP3 Profile:")
         lbl_profile.pack(side=LEFT, fill=Y, padx=(padding, 0))
 
         # Profile dropdown for selected folder
@@ -214,15 +245,15 @@ class HDRMergeMaster(Frame):
             self.align.config(state="disabled")
             self.do_align.set(False)
 
-        self.do_recursive = BooleanVar()
-        self.do_recursive.set(self.saved_settings.get("do_recursive", False))
+        self.do_recursive_option = BooleanVar()
+        self.do_recursive_option.set(self.saved_settings.get("do_recursive", False))
         lbl_recursive = Label(r2, text="Recursive:")
         lbl_recursive.pack(side=LEFT, padx=(padding, 0))
-        self.recursive = Checkbutton(
-            r2, variable=self.do_recursive, onvalue=True, offvalue=False
+        self.recursive_option = Checkbutton(
+            r2, variable=self.do_recursive_option, onvalue=True, offvalue=False
         )
-        self.recursive.pack(side=LEFT)
-        self.buttons_to_disable.append(self.recursive)
+        self.recursive_option.pack(side=LEFT)
+        self.buttons_to_disable.append(self.recursive_option)
 
         self.btn_execute = Button(r2, text="Create HDRs", command=self.execute)
         self.btn_execute.pack(side=RIGHT, fill=X, expand=True, padx=padding)
@@ -263,36 +294,69 @@ class HDRMergeMaster(Frame):
             self.extension_label.config(text="(TIFF)")
 
     def update_batch_display(self):
-        """Refresh the batch listbox display."""
-        self.batch_listbox.delete(0, END)
+        """Refresh the batch table display."""
+        # Clear all existing items
+        for item in self.batch_table.get_children():
+            self.batch_table.delete(item)
+        
+        # Add folders with their profile info and stats
         for folder in self.batch_folders:
-            self.batch_listbox.insert(END, folder)
+            profile_name = self.folder_profiles.get(folder, "")
+            brackets, sets = self.folder_stats.get(folder, ("", ""))
+            self.batch_table.insert("", END, iid=folder, values=(folder, profile_name, brackets, sets))
 
     def add_to_batch(self):
-        """Show file browser and add selected folder to batch list."""
+        """Show file browser and add selected folder(s) to batch list."""
         path = filedialog.askdirectory()
         if not path:
             return
-        if path in self.batch_folders:
-            messagebox.showinfo(
-                "Already Added", "This folder is already in the batch list."
-            )
-            return
-        self.batch_folders.append(path)
+        
+        # Determine folders to add
+        folders_to_add = []
+        
+        if self.do_recursive.get():
+            # Find all subfolders with HDR files
+            gui_settings = CONFIG.get("gui_settings", {})
+            max_depth = gui_settings.get("recursive_max_depth", 1)
+            ignore_folders = gui_settings.get("recursive_ignore_folders", ["Merged"])
+            
+            subfolders = find_subfolders(pathlib.Path(path), max_depth, ignore_folders)
+            folders_to_add = [str(f) for f in subfolders]
+        else:
+            folders_to_add = [path]
+        
+        # Add each folder
+        for folder_path in folders_to_add:
+            if folder_path in self.batch_folders:
+                continue
+            
+            # Analyze the folder for brackets and sets (uses config extension lists)
+            analysis = analyze_folder(pathlib.Path(folder_path))
+            
+            self.batch_folders.append(folder_path)
+            # Auto-assign profile for new folder
+            profile = self.get_profile_for_folder(folder_path)
+            if profile:
+                self.folder_profiles[folder_path] = profile.get("name")
+            # Store the folder stats
+            self.folder_stats[folder_path] = (analysis["brackets"], analysis["sets"])
+        
         self.update_batch_display()
-        # Auto-assign profile for new folder
-        profile = self.get_profile_for_folder(path)
-        if profile:
-            self.folder_profiles[path] = profile.get("name")
 
     def remove_from_batch(self):
         """Remove selected folder from batch list."""
-        selection = self.batch_listbox.curselection()
+        selection = self.batch_table.selection()
         if not selection:
             messagebox.showwarning("No Selection", "Please select a folder to remove.")
             return
-        index = selection[0]
-        del self.batch_folders[index]
+        
+        for item in selection:
+            folder = self.batch_table.item(item)["values"][0]
+            if folder in self.batch_folders:
+                self.batch_folders.remove(folder)
+            if folder in self.folder_profiles:
+                del self.folder_profiles[folder]
+        
         self.update_batch_display()
 
     def clear_batch(self):
@@ -303,16 +367,19 @@ class HDRMergeMaster(Frame):
             "Clear Batch", "Remove all folders from the batch list?"
         ):
             self.batch_folders.clear()
+            self.folder_profiles.clear()
             self.update_batch_display()
 
     def on_batch_select(self, event=None):
-        """Update profile dropdown when a folder is selected in the batch list."""
-        selection = self.batch_listbox.curselection()
+        """Update profile dropdown when a folder is selected in the batch table."""
+        selection = self.batch_table.selection()
         if not selection:
             self._selected_folder = None
             return
-        index = selection[0]
-        folder = self.batch_folders[index]
+        
+        # Get the first selected item
+        item = selection[0]
+        folder = self.batch_table.item(item)["values"][0]
         self._selected_folder = folder
         self.update_profile_dropdown(folder)
 
@@ -390,13 +457,16 @@ class HDRMergeMaster(Frame):
             self.folder_profiles[folder] = selected_profile
         elif folder in self.folder_profiles:
             del self.folder_profiles[folder]
+        
+        # Update the table display to show the new profile
+        self.update_batch_display()
 
     def open_profile_manager(self):
         """Open the PP3 Profile Manager dialog."""
         PP3ProfileManager(self, CONFIG, save_config)
 
     def open_setup_dialog(self):
-        """Open the Setup dialog for configuring executable paths."""
+        """Open the Setup dialog for configuring executable paths and settings."""
         from src.gui.SetupDialog import SetupDialog
 
         def on_setup_save(config):
@@ -467,7 +537,7 @@ class HDRMergeMaster(Frame):
         threads = int(self.num_threads.get())
         do_align = self.do_align.get()
         do_raw = self.do_raw.get()
-        do_recursive = self.do_recursive.get()
+        do_recursive = self.do_recursive_option.get()
 
         # Disable buttons during processing
         for btn in self.buttons_to_disable:

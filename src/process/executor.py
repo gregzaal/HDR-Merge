@@ -14,6 +14,7 @@ from time import sleep
 from constants import VERBOSE
 from utils.get_exif import get_exif
 from src.config import CONFIG, SCRIPT_DIR
+from process.folder_analyzer import analyze_folder
 
 from utils.notify_phone import notify_phone
 from utils.play_sound import play_sound
@@ -157,33 +158,26 @@ class HDRExecutor:
         
         return folders_to_process
 
-    def _calculate_total_sets(self, folders_to_process: list, first_pass_extension: str) -> list:
+    def calculate_total_sets(self, folders_to_process: list) -> list:
         """
         Calculate total sets across all folders for progress tracking.
-        
+        Uses the folder_analyzer module for consistent analysis.
+
         Returns:
             list: List of tuples (folder, brackets, sets)
         """
+        from process.folder_analyzer import analyze_folder
+        
         total_sets_global = 0
         folder_info = []
 
         for proc_folder in folders_to_process:
-            glob = first_pass_extension
-            if "*" not in glob:
-                glob = "*%s" % glob
-            files = list(proc_folder.glob(glob))
-            if files:
-                exifs = []
-                for f in files:
-                    e = get_exif(f)
-                    if e in exifs:
-                        break
-                    exifs.append(e)
-                brackets = len(exifs)
-                if brackets > 0:
-                    sets = len(files) // brackets
-                    total_sets_global += sets
-                    folder_info.append((proc_folder, brackets, sets))
+            analysis = analyze_folder(proc_folder)
+            brackets = analysis["brackets"]
+            sets = analysis["sets"]
+            if brackets > 0 and sets > 0:
+                total_sets_global += sets
+                folder_info.append((proc_folder, brackets, sets))
 
         self.total_sets_global = total_sets_global
         return folder_info
@@ -243,7 +237,7 @@ class HDRExecutor:
             first_pass_extension = self.extension
 
         # Calculate total sets for progress tracking
-        folder_info = self._calculate_total_sets(folders_to_process, first_pass_extension)
+        folder_info = self.calculate_total_sets(folders_to_process)
 
         # Check if any valid folders were found
         if not folder_info:

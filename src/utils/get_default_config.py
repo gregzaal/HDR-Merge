@@ -23,11 +23,13 @@ def get_default_config() -> dict:
     return {
         "exe_paths": default_exe_paths,
         "gui_settings": {
-            "raw_extension": ".dng",
-            "tif_extension": ".tif",
+            "raw_extensions": [".dng", ".cr2", ".cr3", ".nef", ".arw", ".raf", ".orf", ".rw2", ".pef"],
+            "processed_extensions": [".tif", ".tiff", ".png"],
             "threads": "6",
             "do_align": False,
             "do_recursive": False,
+            "recursive_max_depth": 1,
+            "recursive_ignore_folders": ["Merged", "tif", "exr", "jpg", "aligned"],
             "do_raw": False,
             "pp3_file": "",
         },

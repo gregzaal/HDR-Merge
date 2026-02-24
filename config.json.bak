@@ -1,0 +1,36 @@
+{
+    "_needs_setup": false,
+    "_optional_exes_available": {
+        "align_image_stack_exe": true,
+        "rawtherapee_cli_exe": true
+    },
+    "exe_paths": {
+        "align_image_stack_exe": "C://Program Files//Hugin//bin//align_image_stack.exe",
+        "blender_exe": "C://Program Files//Blender Foundation//Blender 3.4//blender.exe",
+        "luminance_cli_exe": "C://Program Files//Luminance HDR//v.2.6.0//luminance-hdr-cli.exe",
+        "rawtherapee_cli_exe": "C://Program Files//RawTherapee//5.12//rawtherapee-cli.exe"
+    },
+    "gui_settings": {
+        "do_align": false,
+        "do_raw": true,
+        "do_recursive": false,
+        "pp3_file": "",
+        "raw_extension": ".dng",
+        "threads": "6",
+        "tif_extension": ".tif"
+    },
+    "pp3_profiles": [
+        {
+            "default": true,
+            "folder_key": "",
+            "name": "HDRI-IRIX-15mm",
+            "path": "F:/PGT/Test Dataset/HDRI-IRIX-15mm.pp3"
+        },
+        {
+            "default": false,
+            "folder_key": "",
+            "name": "HDRI-IRIX-15mm ND1000",
+            "path": "F:/PGT/Test Dataset/HDRI-IRIX-15mm ND1000.pp3"
+        }
+    ]
+}
