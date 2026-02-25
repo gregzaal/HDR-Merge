@@ -76,59 +76,65 @@ def analyze_folder(folder_path: pathlib.Path) -> dict:
 
 def find_subfolders(folder_path: pathlib.Path, max_depth: int = 1, ignore_folders: list = None) -> list:
     """
-    Find all subfolders containing HDR image files.
-    
+    Find all subfolders containing HDR image files, including the root folder if it contains HDR files.
+
     Args:
         folder_path: Root folder to search
         max_depth: Maximum depth to search (default: 1 = immediate subfolders only)
         ignore_folders: List of folder names to ignore (default: from config)
-    
+
     Returns:
         list: List of pathlib.Path objects for folders containing HDR files
     """
     if ignore_folders is None:
         gui_settings = CONFIG.get("gui_settings", {})
         ignore_folders = gui_settings.get("recursive_ignore_folders", ["Merged"])
-    
+
     # Get extension lists from config
     gui_settings = CONFIG.get("gui_settings", {})
     raw_extensions = gui_settings.get("raw_extensions", [])
     processed_extensions = gui_settings.get("processed_extensions", [])
     all_extensions = raw_extensions + processed_extensions
-    
+
     found_folders = []
-    
+
     def has_hdr_files(folder: pathlib.Path) -> bool:
         """Check if folder contains HDR image files."""
         for ext in all_extensions:
             if list(folder.glob(f"*{ext}")) or list(folder.glob(f"*{ext.upper()}")):
                 return True
         return False
-    
+
     def search_folder(folder: pathlib.Path, current_depth: int):
         """Recursively search for folders with HDR files."""
         if current_depth > max_depth:
             return
-        
+
         try:
             for item in folder.iterdir():
                 if not item.is_dir():
                     continue
-                
+
                 # Skip ignored folders
                 if item.name in ignore_folders:
                     continue
-                
+
                 # Check if this folder has HDR files
                 if has_hdr_files(item):
                     found_folders.append(item)
-                
+
                 # Recurse into subfolder
                 search_folder(item, current_depth + 1)
         except PermissionError:
             pass  # Skip folders we can't access
-    
+
+    # Check if the root folder itself has HDR files
+    if has_hdr_files(folder_path):
+        found_folders.append(folder_path)
+
+    # Search subfolders
     search_folder(folder_path, 1)
+    
     return found_folders
 
 

@@ -181,11 +181,11 @@ class HDRMergeMaster(Frame):
         # Align checkbox
         self.do_align = BooleanVar()
         self.do_align.set(self.saved_settings.get("do_align", False))
-        
+
         # Determine alignment method for display
         use_opencv = self.saved_settings.get("use_opencv", False)
-        align_text = "Align (OpenCV)" if use_opencv else "Align"
-        
+        align_text = "Align (OpenCV)" if use_opencv else "Align (Hugin)"
+
         self.align_check2 = Checkbutton(
             profile_frame,
             variable=self.do_align,
@@ -202,7 +202,7 @@ class HDRMergeMaster(Frame):
             "align_image_stack_exe", False
         )
         align_available = use_opencv or hugin_available
-        
+
         # Disable Align checkbox if no alignment method is available
         if not align_available:
             self.align_check2.config(state="disabled")
@@ -235,7 +235,7 @@ class HDRMergeMaster(Frame):
             variable=self.do_cleanup,
             onvalue=True,
             offvalue=False,
-            text="Cleanup",
+            text="Cleanup temporary files",
         )
         self.cleanup_check.pack(side=LEFT, padx=(padding, 0))
         self.buttons_to_disable.append(self.cleanup_check)
@@ -550,13 +550,13 @@ class HDRMergeMaster(Frame):
         use_opencv = CONFIG.get("gui_settings", {}).get("use_opencv", False)
         align_text = "Align (OpenCV)" if use_opencv else "Align"
         self.align_check2.config(text=align_text)
-        
+
         # Also update availability check
         hugin_available = CONFIG.get("_optional_exes_available", {}).get(
             "align_image_stack_exe", False
         )
         align_available = use_opencv or hugin_available
-        
+
         if not align_available:
             self.align_check2.config(state="disabled")
             self.do_align.set(False)
@@ -585,8 +585,7 @@ class HDRMergeMaster(Frame):
         """Handle processing completion."""
         for btn in self.buttons_to_disable:
             btn["state"] = "normal"
-        self.btn_execute["text"] = "Done!"
-        self.btn_execute["command"] = self.quit
+        self.btn_execute["text"] = "Create HDRs"
         self.master.update()
 
     def _on_processing_error(self, error_message):
@@ -621,7 +620,7 @@ class HDRMergeMaster(Frame):
         threads = int(self.num_threads.get())
         do_recursive = self.do_recursive_option.get()
         do_cleanup = self.do_cleanup.get()
-        
+
         # Save cleanup setting to config
         CONFIG["gui_settings"]["do_cleanup"] = do_cleanup
 
