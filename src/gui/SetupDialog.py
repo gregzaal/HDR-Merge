@@ -11,7 +11,9 @@ from tkinter import (
     END,
     LEFT,
     RIGHT,
+    BooleanVar,
     Button,
+    Checkbutton,
     Entry,
     Frame,
     Label,
@@ -54,6 +56,12 @@ class SetupDialog(Toplevel):
 
         # Store entry widgets for later access
         self.entry_widgets = {}
+
+        # Get OpenCV alignment setting
+        self.use_opencv = gui_settings.get("use_opencv", False)
+        
+        # Get cleanup setting
+        self.do_cleanup = gui_settings.get("do_cleanup", False)
 
         self.initUI()
         center(self)
@@ -186,6 +194,62 @@ class SetupDialog(Toplevel):
         self.proc_ext_entry = Entry(proc_frame, width=60)
         self.proc_ext_entry.pack(fill=X)
         self.proc_ext_entry.insert(0, ", ".join(self.processed_extensions))
+
+        # OpenCV Alignment section
+        opencv_frame = Frame(parent)
+        opencv_frame.pack(fill=X, pady=padding)
+
+        Label(
+            opencv_frame,
+            text="Alignment Method:",
+            font=("TkDefaultFont", 10, "bold"),
+        ).pack(anchor="w", pady=(0, 4))
+
+        self.use_opencv_var = BooleanVar(value=self.use_opencv)
+        opencv_check = Checkbutton(
+            opencv_frame,
+            variable=self.use_opencv_var,
+            onvalue=True,
+            offvalue=False,
+            text="Use OpenCV AlignMTB (alternative to Hugin's align_image_stack)",
+        )
+        opencv_check.pack(anchor="w")
+
+        Label(
+            opencv_frame,
+            text="When enabled, OpenCV's AlignMTB will be used for image alignment instead of Hugin's align_image_stack.",
+            fg="gray",
+            font=("TkDefaultFont", 8),
+            wraplength=600,
+        ).pack(anchor="w", pady=(4, 0))
+
+        # Cleanup section
+        cleanup_frame = Frame(parent)
+        cleanup_frame.pack(fill=X, pady=padding)
+
+        Label(
+            cleanup_frame,
+            text="Cleanup:",
+            font=("TkDefaultFont", 10, "bold"),
+        ).pack(anchor="w", pady=(0, 4))
+
+        self.do_cleanup_var = BooleanVar(value=self.do_cleanup)
+        cleanup_check = Checkbutton(
+            cleanup_frame,
+            variable=self.do_cleanup_var,
+            onvalue=True,
+            offvalue=False,
+            text="Clean up temporary files after processing",
+        )
+        cleanup_check.pack(anchor="w")
+
+        Label(
+            cleanup_frame,
+            text="When enabled, intermediate TIFF files (from RAW processing) and aligned TIFF files will be deleted after HDR creation is complete.",
+            fg="gray",
+            font=("TkDefaultFont", 8),
+            wraplength=600,
+        ).pack(anchor="w", pady=(4, 0))
 
     def _init_recursive_tab(self, parent, padding):
         """Initialize the Recursive Search tab."""
@@ -399,12 +463,20 @@ class SetupDialog(Toplevel):
             f.strip() for f in self.ignore_entry.get().split(",") if f.strip()
         ]
 
+        # Parse OpenCV alignment setting
+        use_opencv = self.use_opencv_var.get()
+        
+        # Parse cleanup setting
+        do_cleanup = self.do_cleanup_var.get()
+
         # Update config
         self.config["exe_paths"] = new_exe_paths
         self.config["gui_settings"]["raw_extensions"] = raw_extensions
         self.config["gui_settings"]["processed_extensions"] = processed_extensions
         self.config["gui_settings"]["recursive_max_depth"] = max_depth
         self.config["gui_settings"]["recursive_ignore_folders"] = ignore_folders
+        self.config["gui_settings"]["use_opencv"] = use_opencv
+        self.config["gui_settings"]["do_cleanup"] = do_cleanup
 
         self.save_callback(self.config)
 

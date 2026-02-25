@@ -27,6 +27,8 @@ def get_default_config() -> dict:
             "processed_extensions": [".tif", ".tiff", ".png"],
             "threads": "6",
             "do_align": False,
+            "use_opencv": False,
+            "do_cleanup": False,
             "do_recursive": False,
             "recursive_max_depth": 1,
             "recursive_ignore_folders": ["Merged", "tif", "exr", "jpg", "aligned"],

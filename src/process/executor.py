@@ -11,21 +11,16 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from time import sleep
 
-from constants import VERBOSE
-from utils.get_exif import get_exif
-from src.config import CONFIG, SCRIPT_DIR
-from process.folder_analyzer import analyze_folder
-
-from utils.notify_phone import notify_phone
-from utils.play_sound import play_sound
-from utils.save_config import save_config
 from process.hdr_processor import HDRProcessor
+from src.config import CONFIG, SCRIPT_DIR
+from utils.notify_phone import notify_phone
+from utils.save_config import save_config
 
 
 class HDRExecutor:
     """
     Orchestrates HDR batch processing workflow.
-    
+
     This class handles:
     - Validating configuration and paths
     - Determining folders to process
@@ -136,17 +131,29 @@ class HDRExecutor:
         CONFIG["gui_settings"]["do_recursive"] = self.do_recursive
         save_config(CONFIG)
 
+        # Get OpenCV alignment setting
+        use_opencv = CONFIG.get("gui_settings", {}).get("use_opencv", False)
+        
+        # Get cleanup setting
+        use_cleanup = CONFIG.get("gui_settings", {}).get("do_cleanup", False)
+
         # Validate optional features
         optional_exes_available = CONFIG.get("_optional_exes_available", {})
 
-        # Check if any folders need align and if it's available
+        # Check if any folders need align and if the required method is available
         for fd in self.folder_data:
             if self.folder_align.get(fd["path"], False):
-                if not optional_exes_available.get("align_image_stack_exe", False):
-                    raise RuntimeError(
-                        "Align is enabled for folder '%s' but align_image_stack is not configured or not found!\n\n"
-                        "Please configure the align_image_stack path in config.json." % fd["path"]
-                    )
+                if use_opencv:
+                    # OpenCV is built-in, no external check needed
+                    pass
+                else:
+                    # Using Hugin's align_image_stack
+                    if not optional_exes_available.get("align_image_stack_exe", False):
+                        raise RuntimeError(
+                            "Align is enabled for folder '%s' but align_image_stack is not configured or not found!\n\n"
+                            "Please configure the align_image_stack path in config.json."
+                            % fd["path"]
+                        )
 
         # Use pre-analyzed folder data
         folders_to_process = [fd["path"] for fd in self.folder_data]
@@ -193,6 +200,7 @@ class HDRExecutor:
                     rawtherapee_cli_exe,
                     folder_pp3_file,
                     executor,
+                    use_opencv,
                 )
                 bracket_list.append(brackets)
                 total_sets += sets
@@ -215,6 +223,14 @@ class HDRExecutor:
                         self._log("Bracket %d: Exception - %s" % (bracket_idx, ex))
                     completed.add(bracket_idx)
 
+        # Clean up temporary files if enabled
+        if use_cleanup:
+            self._log("\nCleaning up temporary files...")
+            for fd in self.folder_data:
+                proc_folder = pathlib.Path(fd["path"])
+                is_raw = fd.get("is_raw", False)
+                self.processor.cleanup_folder(proc_folder, is_raw)
+
         self._log("Done!!!")
         folder_end_time = datetime.now()
         folder_duration = (folder_end_time - folder_start_time).total_seconds()
@@ -231,11 +247,13 @@ class HDRExecutor:
         )
 
         if self.completion_callback:
-            self.completion_callback({
-                "duration": folder_duration,
-                "total_sets": total_sets,
-                "threads": self.threads,
-            })
+            self.completion_callback(
+                {
+                    "duration": folder_duration,
+                    "total_sets": total_sets,
+                    "threads": self.threads,
+                }
+            )
 
 
 def execute_hdr_processing(

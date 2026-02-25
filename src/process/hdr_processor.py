@@ -10,12 +10,14 @@ Contains core processing logic for HDR image merging:
 import pathlib
 from concurrent.futures import ThreadPoolExecutor
 
+import cv2
+import numpy as np
+
 from constants import VERBOSE
-from utils.chunks import chunks
 from process.run_subprocess_with_prefix import run_subprocess_with_prefix
+from utils.chunks import chunks
 from utils.ev_diff import ev_diff
 from utils.get_exif import get_exif
-from src.config import CONFIG
 
 
 class HDRProcessor:
@@ -45,6 +47,81 @@ class HDRProcessor:
         """Update progress via callback."""
         if self.progress_callback:
             self.progress_callback(self.completed_sets_global, self.total_sets_global)
+
+    def _align_with_opencv(self, img_paths, align_folder, bracket_index, folder):
+        """
+        Align images using OpenCV's AlignMTB algorithm.
+        
+        Args:
+            img_paths: List of image paths (with ___EV suffix)
+            align_folder: Output folder for aligned images
+            bracket_index: Bracket set index
+            folder: Parent folder for logging
+            
+        Returns:
+            List of aligned image paths (with ___EV suffix)
+        """
+        self._log("Folder %s: Bracket %d: Aligning images with OpenCV AlignMTB" % (folder.name, bracket_index))
+        
+        # Extract actual image paths (remove ___EV suffix)
+        actual_img_paths = [p.split("___")[0] for p in img_paths]
+        ev_values = [p.split("___")[1] for p in img_paths]
+        
+        # Load reference image (first image)
+        ref_img = cv2.imread(actual_img_paths[0], cv2.IMREAD_COLOR)
+        if ref_img is None:
+            raise Exception("Folder %s: Failed to load reference image %s" % (folder.name, actual_img_paths[0]))
+        
+        # Initialize AlignMTB
+        aligner = cv2.AlignMTB()
+        
+        # Calculate offsets for each image relative to reference
+        aligned_paths = []
+        
+        for j, img_path in enumerate(actual_img_paths):
+            img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+            if img is None:
+                raise Exception("Folder %s: Failed to load image %s" % (folder.name, img_path))
+            
+            if j == 0:
+                # Reference image - no alignment needed
+                offsets = (0, 0)
+            else:
+                # Calculate offsets using AlignMTB
+                try:
+                    offsets = aligner.calculateShift(ref_img, img)
+                except Exception as e:
+                    self._log("Folder %s: Bracket %d: OpenCV alignment warning for image %d: %s" % (folder.name, bracket_index, j, e))
+                    offsets = (0, 0)
+            
+            # Create output filename
+            output_filename = "align_{}_{}.tif".format(bracket_index, str(j).zfill(4))
+            output_path = align_folder / output_filename
+            
+            # Apply shift to align the image
+            if offsets != (0, 0):
+                # Create translation matrix
+                translation_matrix = np.float32([[1, 0, offsets[0]], [0, 1, offsets[1]]])
+                # Warp the image to align with reference
+                aligned_img = cv2.warpAffine(
+                    img, 
+                    translation_matrix, 
+                    (ref_img.shape[1], ref_img.shape[0]),
+                    borderMode=cv2.BORDER_REPLICATE
+                )
+            else:
+                aligned_img = img
+            
+            # Save aligned image
+            cv2.imwrite(output_path.as_posix(), aligned_img)
+            
+            # Add back the EV suffix
+            aligned_paths.append(output_path.as_posix() + "___" + ev_values[j])
+        
+        if VERBOSE:
+            self._log("Folder %s: Bracket %d: OpenCV alignment complete, %d images aligned" % (folder.name, bracket_index, len(aligned_paths)))
+        
+        return aligned_paths
 
     def process_raw_with_rawtherapee(
         self,
@@ -125,6 +202,7 @@ class HDRProcessor:
         luminance_cli_exe,
         align_image_stack_exe,
         do_align: bool,
+        use_opencv: bool = False,
     ):
         """Merge a bracket set into an HDR image."""
         exr_folder = out_folder / "exr"
@@ -150,40 +228,54 @@ class HDRProcessor:
             if VERBOSE:
                 print(
                     "Folder %s: Bracket %d: Aligning images %s"
-                    % (folder.name, i, [pathlib.Path(p.split("___")[0]).name for p in img_list])
+                    % (
+                        folder.name,
+                        i,
+                        [pathlib.Path(p.split("___")[0]).name for p in img_list],
+                    )
                 )
             else:
                 print("Folder %s: Bracket %d: Aligning images" % (folder.name, i))
 
             align_folder.mkdir(parents=True, exist_ok=True)
-            actual_img_list = [i.split("___")[0] for i in img_list]
-            cmd = [
-                align_image_stack_exe,
-                "-v",
-                "-i",
-                "-l",
-                "-a",
-                (align_folder / "align_{}_".format(i)).as_posix(),
-                "--gpu",
-            ]
-            cmd += actual_img_list
-            new_img_list = []
-            for j, img in enumerate(img_list):
-                new_img_list.append(
-                    (
-                        align_folder
-                        / "align_{}_{}.tif___{}".format(
-                            i, str(j).zfill(4), img_list[j].split("___")[-1]
-                        )
-                    ).as_posix()
-                )
-            run_subprocess_with_prefix(cmd, i, "align", out_folder)
-            img_list = new_img_list
+            
+            if use_opencv:
+                # Use OpenCV AlignMTB for alignment
+                img_list = self._align_with_opencv(img_list, align_folder, i, folder)
+            else:
+                # Use Hugin's align_image_stack for alignment
+                actual_img_list = [i.split("___")[0] for i in img_list]
+                cmd = [
+                    align_image_stack_exe,
+                    "-v",
+                    "-i",
+                    "-l",
+                    "-a",
+                    (align_folder / "align_{}_".format(i)).as_posix(),
+                    "--gpu",
+                ]
+                cmd += actual_img_list
+                new_img_list = []
+                for j, img in enumerate(img_list):
+                    new_img_list.append(
+                        (
+                            align_folder
+                            / "align_{}_{}.tif___{}".format(
+                                i, str(j).zfill(4), img_list[j].split("___")[-1]
+                            )
+                        ).as_posix()
+                    )
+                run_subprocess_with_prefix(cmd, i, "align", out_folder)
+                img_list = new_img_list
 
         if VERBOSE:
             print(
                 "Folder %s: Bracket %d: Merging %s"
-                % (folder.name, i, [pathlib.Path(p.split("___")[0]).name for p in img_list])
+                % (
+                    folder.name,
+                    i,
+                    [pathlib.Path(p.split("___")[0]).name for p in img_list],
+                )
             )
         else:
             print("Folder %s: Bracket %d: Merging" % (folder.name, i))
@@ -224,7 +316,11 @@ class HDRProcessor:
         if VERBOSE:
             print(
                 "Folder %s: Bracket %d: Complete %s"
-                % (folder.name, i, [pathlib.Path(p.split("___")[0]).name for p in img_list])
+                % (
+                    folder.name,
+                    i,
+                    [pathlib.Path(p.split("___")[0]).name for p in img_list],
+                )
             )
         else:
             print("Folder %s: Bracket %d: Complete" % (folder.name, i))
@@ -245,6 +341,7 @@ class HDRProcessor:
         rawtherapee_cli_exe: str,
         pp3_file: str,
         executor: ThreadPoolExecutor,
+        use_opencv: bool = False,
     ) -> tuple:
         """
         Process a single folder and return (num_brackets, num_sets, threads, error).
@@ -320,10 +417,45 @@ class HDRProcessor:
                 luminance_cli_exe,
                 align_image_stack_exe,
                 do_align,
+                use_opencv,
             )
             threads.append((i, t))
 
         return (brackets, len(sets), threads, None)
+
+    def cleanup_folder(self, folder: pathlib.Path, was_raw: bool):
+        """
+        Clean up temporary files after processing.
+        
+        Args:
+            folder: The original folder that was processed
+            was_raw: Whether RAW processing was used (to clean up tif folder)
+        """
+        self._log("Folder %s: Cleaning up temporary files..." % folder.name)
+        
+        # Clean up aligned folder (inside Merged/output folder)
+        merged_folder = folder / "Merged"
+        aligned_folder = merged_folder / "aligned"
+        if aligned_folder.exists():
+            try:
+                import shutil
+                shutil.rmtree(aligned_folder)
+                self._log("Folder %s: Deleted aligned folder" % folder.name)
+            except Exception as e:
+                self._log("Folder %s: Failed to delete aligned folder: %s" % (folder.name, e))
+        
+        # Clean up tif folder (only if RAW processing was used)
+        if was_raw:
+            tif_folder = folder / "tif"
+            if tif_folder.exists():
+                try:
+                    import shutil
+                    shutil.rmtree(tif_folder)
+                    self._log("Folder %s: Deleted tif folder" % folder.name)
+                except Exception as e:
+                    self._log("Folder %s: Failed to delete tif folder: %s" % (folder.name, e))
+        
+        self._log("Folder %s: Cleanup complete" % folder.name)
 
     def set_progress_totals(self, total_sets: int):
         """Set the total number of sets for progress tracking."""

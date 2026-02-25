@@ -181,21 +181,30 @@ class HDRMergeMaster(Frame):
         # Align checkbox
         self.do_align = BooleanVar()
         self.do_align.set(self.saved_settings.get("do_align", False))
+        
+        # Determine alignment method for display
+        use_opencv = self.saved_settings.get("use_opencv", False)
+        align_text = "Align (OpenCV)" if use_opencv else "Align"
+        
         self.align_check2 = Checkbutton(
             profile_frame,
             variable=self.do_align,
             onvalue=True,
             offvalue=False,
-            text="Align",
+            text=align_text,
             command=self.toggle_folder_align,
         )
         self.align_check2.pack(side=LEFT, padx=(padding, 0))
         self.buttons_to_disable.append(self.align_check2)
 
-        # Disable Align checkbox if align_image_stack is not available
-        if not CONFIG.get("_optional_exes_available", {}).get(
+        # Check if alignment is available (either OpenCV or Hugin)
+        hugin_available = CONFIG.get("_optional_exes_available", {}).get(
             "align_image_stack_exe", False
-        ):
+        )
+        align_available = use_opencv or hugin_available
+        
+        # Disable Align checkbox if no alignment method is available
+        if not align_available:
             self.align_check2.config(state="disabled")
             self.do_align.set(False)
 
@@ -217,6 +226,19 @@ class HDRMergeMaster(Frame):
         self.num_threads.bind("<Return>", self.save_threads)
         self.num_threads.pack(side=LEFT, padx=(padding, 0))
         self.buttons_to_disable.append(self.num_threads)
+
+        # Cleanup checkbox
+        self.do_cleanup = BooleanVar()
+        self.do_cleanup.set(self.saved_settings.get("do_cleanup", False))
+        self.cleanup_check = Checkbutton(
+            r2,
+            variable=self.do_cleanup,
+            onvalue=True,
+            offvalue=False,
+            text="Cleanup",
+        )
+        self.cleanup_check.pack(side=LEFT, padx=(padding, 0))
+        self.buttons_to_disable.append(self.cleanup_check)
 
         # Spacer to push button to right
         Frame(r2).pack(side=LEFT, fill=X, expand=True)
@@ -512,9 +534,34 @@ class HDRMergeMaster(Frame):
             # After saving new config, we should check if any optional executables became available/unavailable
             CONFIG.update(config)
             self.refresh_folder_profiles()  # Refresh profiles in case setup changes affect them
+            self.refresh_align_checkbox()  # Refresh align checkbox text if OpenCV setting changed
+            self.refresh_cleanup_checkbox()  # Refresh cleanup checkbox state if setting changed
 
         setup_dialog = SetupDialog(self.master, CONFIG, on_setup_save)
         setup_dialog.grab_set()  # Make the setup dialog modal
+
+    def refresh_cleanup_checkbox(self):
+        """Refresh the cleanup checkbox state based on config setting."""
+        do_cleanup = CONFIG.get("gui_settings", {}).get("do_cleanup", False)
+        self.do_cleanup.set(do_cleanup)
+
+    def refresh_align_checkbox(self):
+        """Refresh the align checkbox text based on OpenCV setting."""
+        use_opencv = CONFIG.get("gui_settings", {}).get("use_opencv", False)
+        align_text = "Align (OpenCV)" if use_opencv else "Align"
+        self.align_check2.config(text=align_text)
+        
+        # Also update availability check
+        hugin_available = CONFIG.get("_optional_exes_available", {}).get(
+            "align_image_stack_exe", False
+        )
+        align_available = use_opencv or hugin_available
+        
+        if not align_available:
+            self.align_check2.config(state="disabled")
+            self.do_align.set(False)
+        else:
+            self.align_check2.config(state="normal")
 
     def refresh_folder_profiles(self):
         """Refresh folder-to-profile mappings after profiles are modified."""
@@ -573,6 +620,10 @@ class HDRMergeMaster(Frame):
 
         threads = int(self.num_threads.get())
         do_recursive = self.do_recursive_option.get()
+        do_cleanup = self.do_cleanup.get()
+        
+        # Save cleanup setting to config
+        CONFIG["gui_settings"]["do_cleanup"] = do_cleanup
 
         # Build folder_data list from pre-analyzed stats
         folder_data = []
