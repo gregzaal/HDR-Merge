@@ -9,9 +9,9 @@ Contains core processing logic for HDR image merging:
 
 import pathlib
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 import cv2
-import numpy as np
 
 from constants import VERBOSE
 from process.run_subprocess_with_prefix import run_subprocess_with_prefix
@@ -48,7 +48,9 @@ class HDRProcessor:
         if self.progress_callback:
             self.progress_callback(self.completed_sets_global, self.total_sets_global)
 
-    def _align_with_opencv(self, img_paths, align_folder, bracket_index, folder):
+    def _align_with_opencv(
+        self, img_paths, align_folder, bracket_index, folder, out_folder
+    ):
         """
         Align images using OpenCV's AlignMTB algorithm.
 
@@ -57,27 +59,72 @@ class HDRProcessor:
             align_folder: Output folder for aligned images
             bracket_index: Bracket set index
             folder: Parent folder for logging
+            out_folder: Output folder for saving logs
 
         Returns:
             List of aligned image paths (with ___EV suffix)
         """
-        self._log("Folder %s: Bracket %d: Aligning images with OpenCV AlignMTB" % (folder.name, bracket_index))
+        # Create log file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_filename = "bracket_%03d_mergeMTB_%s.log" % (bracket_index, timestamp)
+        log_path = out_folder / "logs" / log_filename
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        log_messages = []
+        log_messages.append(
+            "Folder %s: Bracket %d: Aligning images with OpenCV AlignMTB"
+            % (folder.name, bracket_index)
+        )
 
         # Extract actual image paths (remove ___EV suffix)
         actual_img_paths = [p.split("___")[0] for p in img_paths]
         ev_values = [p.split("___")[1] for p in img_paths]
+
+        log_messages.append("Loading %d images for alignment" % len(actual_img_paths))
 
         # Load all images
         images = []
         for img_path in actual_img_paths:
             img = cv2.imread(img_path, cv2.IMREAD_COLOR)
             if img is None:
-                raise Exception("Folder %s: Failed to load image %s" % (folder.name, img_path))
+                error_msg = "Folder %s: Failed to load image %s" % (
+                    folder.name,
+                    img_path,
+                )
+                log_messages.append(error_msg)
+                # Write log file
+                with open(log_path.as_posix(), "w") as log_file:
+                    log_file.write("STDOUT:\n")
+                    log_file.write("\n".join(log_messages))
+                    log_file.write("\nSTDERR:\n")
+                    log_file.write(error_msg)
+                raise Exception(error_msg)
             images.append(img)
 
+        log_messages.append("Images loaded successfully")
+
         # Initialize AlignMTB and align images
+        log_messages.append("Initializing AlignMTB")
         alignMTB = cv2.createAlignMTB()
-        alignMTB.process(images, images)
+
+        log_messages.append("Running AlignMTB.process()")
+        try:
+            alignMTB.process(images, images)
+            log_messages.append("Alignment completed successfully")
+        except Exception as e:
+            error_msg = "Folder %s: Bracket %d: OpenCV alignment error: %s" % (
+                folder.name,
+                bracket_index,
+                e,
+            )
+            log_messages.append(error_msg)
+            # Write log file
+            with open(log_path.as_posix(), "w") as log_file:
+                log_file.write("STDOUT:\n")
+                log_file.write("\n".join(log_messages))
+                log_file.write("\nSTDERR:\n")
+                log_file.write(error_msg)
+            raise
 
         # Save aligned images
         aligned_paths = []
@@ -87,14 +134,27 @@ class HDRProcessor:
             output_filename = "align_{}_{}.tif".format(bracket_index, str(j).zfill(4))
             output_path = align_folder / output_filename
 
-            # Save aligned image
+            log_messages.append("Saving aligned image: %s" % output_filename)
             cv2.imwrite(output_path.as_posix(), aligned_img)
 
             # Add back the EV suffix
             aligned_paths.append(output_path.as_posix() + "___" + ev_values[j])
 
+        log_messages.append(
+            "Folder %s: Bracket %d: OpenCV alignment complete, %d images aligned"
+            % (folder.name, bracket_index, len(aligned_paths))
+        )
+
+        # Write log file
+        with open(log_path.as_posix(), "w") as log_file:
+            log_file.write("STDOUT:\n")
+            log_file.write("\n".join(log_messages))
+            log_file.write("\nSTDERR:\n")
+            log_file.write("")
+
         if VERBOSE:
-            self._log("Folder %s: Bracket %d: OpenCV alignment complete, %d images aligned" % (folder.name, bracket_index, len(aligned_paths)))
+            for msg in log_messages:
+                self._log(msg)
 
         return aligned_paths
 
@@ -213,10 +273,12 @@ class HDRProcessor:
                 print("Folder %s: Bracket %d: Aligning images" % (folder.name, i))
 
             align_folder.mkdir(parents=True, exist_ok=True)
-            
+
             if use_opencv:
                 # Use OpenCV AlignMTB for alignment
-                img_list = self._align_with_opencv(img_list, align_folder, i, folder)
+                img_list = self._align_with_opencv(
+                    img_list, align_folder, i, folder, out_folder
+                )
             else:
                 # Use Hugin's align_image_stack for alignment
                 actual_img_list = [i.split("___")[0] for i in img_list]
@@ -401,35 +463,41 @@ class HDRProcessor:
     def cleanup_folder(self, folder: pathlib.Path, was_raw: bool):
         """
         Clean up temporary files after processing.
-        
+
         Args:
             folder: The original folder that was processed
             was_raw: Whether RAW processing was used (to clean up tif folder)
         """
         self._log("Folder %s: Cleaning up temporary files..." % folder.name)
-        
+
         # Clean up aligned folder (inside Merged/output folder)
         merged_folder = folder / "Merged"
         aligned_folder = merged_folder / "aligned"
         if aligned_folder.exists():
             try:
                 import shutil
+
                 shutil.rmtree(aligned_folder)
                 self._log("Folder %s: Deleted aligned folder" % folder.name)
             except Exception as e:
-                self._log("Folder %s: Failed to delete aligned folder: %s" % (folder.name, e))
-        
+                self._log(
+                    "Folder %s: Failed to delete aligned folder: %s" % (folder.name, e)
+                )
+
         # Clean up tif folder (only if RAW processing was used)
         if was_raw:
             tif_folder = folder / "tif"
             if tif_folder.exists():
                 try:
                     import shutil
+
                     shutil.rmtree(tif_folder)
                     self._log("Folder %s: Deleted tif folder" % folder.name)
                 except Exception as e:
-                    self._log("Folder %s: Failed to delete tif folder: %s" % (folder.name, e))
-        
+                    self._log(
+                        "Folder %s: Failed to delete tif folder: %s" % (folder.name, e)
+                    )
+
         self._log("Folder %s: Cleanup complete" % folder.name)
 
     def set_progress_totals(self, total_sets: int):
