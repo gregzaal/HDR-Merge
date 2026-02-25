@@ -6,6 +6,7 @@ Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: exifread>=3.5.1
+Requires-Dist: opencv-python>=4.13.0.92
 Requires-Dist: plyer>=2.1.0
 Dynamic: license-file
 

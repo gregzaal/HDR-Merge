@@ -175,6 +175,30 @@ class HDRMergeMaster(Frame):
         self.profile_dropdown.pack(side=LEFT, fill=X, expand=True)
         self.profile_dropdown.bind("<<ComboboxSelected>>", self.on_profile_change)
 
+        # Spacer to push button to right
+        Frame(r_profile).pack(side=LEFT, fill=X, expand=True)
+
+        # Align checkbox
+        self.do_align = BooleanVar()
+        self.do_align.set(self.saved_settings.get("do_align", False))
+        self.align_check2 = Checkbutton(
+            profile_frame,
+            variable=self.do_align,
+            onvalue=True,
+            offvalue=False,
+            text="Align",
+            command=self.toggle_folder_align,
+        )
+        self.align_check2.pack(side=LEFT, padx=(padding, 0))
+        self.buttons_to_disable.append(self.align_check2)
+
+        # Disable Align checkbox if align_image_stack is not available
+        if not CONFIG.get("_optional_exes_available", {}).get(
+            "align_image_stack_exe", False
+        ):
+            self.align_check2.config(state="disabled")
+            self.do_align.set(False)
+
         btn_manage_profiles = Button(
             r_profile, text="Manage Profiles...", command=self.open_profile_manager
         )
@@ -194,27 +218,6 @@ class HDRMergeMaster(Frame):
         self.num_threads.pack(side=LEFT, padx=(padding, 0))
         self.buttons_to_disable.append(self.num_threads)
 
-        # Align checkbox
-        self.do_align = BooleanVar()
-        self.do_align.set(self.saved_settings.get("do_align", False))
-        self.align_check2 = Checkbutton(
-            r2,
-            variable=self.do_align,
-            onvalue=True,
-            offvalue=False,
-            text="Align",
-            command=self.toggle_folder_align,
-        )
-        self.align_check2.pack(side=LEFT, padx=(padding, 0))
-        self.buttons_to_disable.append(self.align_check2)
-
-        # Disable Align checkbox if align_image_stack is not available
-        if not CONFIG.get("_optional_exes_available", {}).get(
-            "align_image_stack_exe", False
-        ):
-            self.align_check2.config(state="disabled")
-            self.do_align.set(False)
-
         # Spacer to push button to right
         Frame(r2).pack(side=LEFT, fill=X, expand=True)
 
@@ -222,7 +225,7 @@ class HDRMergeMaster(Frame):
         btn_setup_dialog.pack(side=LEFT, padx=(0, padding))
 
         self.btn_execute = Button(r2, text="Create HDRs", command=self.execute)
-        self.btn_execute.pack(side=RIGHT, padx=padding)
+        self.btn_execute.pack(side=RIGHT, padx=(0, padding))
         self.buttons_to_disable.append(self.btn_execute)
 
         r2.pack(fill=X, pady=(padding, 0))
@@ -233,7 +236,7 @@ class HDRMergeMaster(Frame):
         self.progress = ttk.Progressbar(
             r4, orient=HORIZONTAL, length=100, mode="determinate"
         )
-        self.progress.pack(fill=X, padx=padding, pady=(0, padding))
+        self.progress.pack(fill=X, padx=padding, pady=(padding, padding))
 
         r4.pack(fill=X)
 
@@ -339,7 +342,7 @@ class HDRMergeMaster(Frame):
                 return
 
             # Clean up: strip whitespace and quotes (often present when "Copy as path" in Windows)
-            path_str = clipboard.strip().strip("\"")
+            path_str = clipboard.strip().strip('"')
 
             if self._last_clipboard == path_str:
                 return

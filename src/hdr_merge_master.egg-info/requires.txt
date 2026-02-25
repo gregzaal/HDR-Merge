@@ -1,2 +1,3 @@
 exifread>=3.5.1
+opencv-python>=4.13.0.92
 plyer>=2.1.0

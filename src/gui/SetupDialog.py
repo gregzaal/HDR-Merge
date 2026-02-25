@@ -5,23 +5,20 @@ Contains the dialog for configuring executable paths and other settings.
 """
 
 import pathlib
-import tkinter as tk
 import webbrowser
 from tkinter import (
     BOTH,
     END,
     LEFT,
     RIGHT,
-    TOP,
-    X,
     Button,
     Entry,
     Frame,
     Label,
     Toplevel,
+    X,
     filedialog,
     messagebox,
-    font as tkfont,
     ttk,
 )
 
@@ -35,17 +32,25 @@ class SetupDialog(Toplevel):
         Toplevel.__init__(self, parent)
         self.parent = parent
         self.title("Setup")
-        self.geometry("750x550")
+        self.geometry("700x400")
         self.config = config
         self.save_callback = save_callback
         self.exe_paths = dict(config.get("exe_paths", {}))
-        
+
         # Get GUI settings
         gui_settings = config.get("gui_settings", {})
-        self.raw_extensions = list(gui_settings.get("raw_extensions", [".dng", ".cr2", ".cr3", ".nef", ".arw"]))
-        self.processed_extensions = list(gui_settings.get("processed_extensions", [".tif", ".tiff", ".jpg"]))
+        self.raw_extensions = list(
+            gui_settings.get("raw_extensions", [".dng", ".cr2", ".cr3", ".nef", ".arw"])
+        )
+        self.processed_extensions = list(
+            gui_settings.get("processed_extensions", [".tif", ".tiff", ".jpg"])
+        )
         self.recursive_max_depth = gui_settings.get("recursive_max_depth", 1)
-        self.recursive_ignore_folders = list(gui_settings.get("recursive_ignore_folders", ["Merged", "tif", "exr", "jpg", "aligned"]))
+        self.recursive_ignore_folders = list(
+            gui_settings.get(
+                "recursive_ignore_folders", ["Merged", "tif", "exr", "jpg", "aligned"]
+            )
+        )
 
         # Store entry widgets for later access
         self.entry_widgets = {}
@@ -120,7 +125,7 @@ class SetupDialog(Toplevel):
             },
             {
                 "key": "align_image_stack_exe",
-                "label": "Align Image Stack (Optional - Hugin):",
+                "label": "Align Image Stack (Optional):",
                 "download_url": "https://hugin.sourceforge.io/download/",
             },
             {
@@ -242,7 +247,7 @@ class SetupDialog(Toplevel):
         frame.pack(fill=X, pady=4)
 
         # Label
-        label = Label(frame, text=label_text, width=35, anchor="w")
+        label = Label(frame, text=label_text, width=25, anchor="w")
         label.pack(side=LEFT)
 
         # Entry field
@@ -257,7 +262,7 @@ class SetupDialog(Toplevel):
 
         # Download link (below the field)
         link_frame = Frame(parent)
-        link_frame.pack(fill=X, pady=(0, 8), padx=(140, 0))
+        link_frame.pack(fill=X, pady=(0, 8), padx=(8, 0))
 
         link_label = Label(
             link_frame,
@@ -313,12 +318,14 @@ class SetupDialog(Toplevel):
         missing_required = []
         for key in required_keys:
             if not new_exe_paths.get(key):
-                missing_required.append(key.replace("_exe", "").replace("_", " ").title())
+                missing_required.append(
+                    key.replace("_exe", "").replace("_", " ").title()
+                )
 
         if missing_required:
             messagebox.showerror(
                 "Missing Required Paths",
-                f"The following required executable paths are not set:\n\n"
+                "The following required executable paths are not set:\n\n"
                 + "\n".join(f"  - {name}" for name in missing_required)
                 + "\n\nPlease configure all required paths before saving.",
             )
@@ -329,7 +336,9 @@ class SetupDialog(Toplevel):
         for key in required_keys:
             path = new_exe_paths.get(key, "")
             if path and not pathlib.Path(path).exists():
-                missing_files.append(f"{key.replace('_exe', '').replace('_', ' ').title()}: {path}")
+                missing_files.append(
+                    f"{key.replace('_exe', '').replace('_', ' ').title()}: {path}"
+                )
 
         if missing_files:
             result = messagebox.askyesno(
@@ -344,12 +353,16 @@ class SetupDialog(Toplevel):
         # Parse extension lists
         try:
             raw_extensions = [
-                ext.strip().lower() if ext.strip().startswith(".") else "." + ext.strip().lower()
+                ext.strip().lower()
+                if ext.strip().startswith(".")
+                else "." + ext.strip().lower()
                 for ext in self.raw_ext_entry.get().split(",")
                 if ext.strip()
             ]
             processed_extensions = [
-                ext.strip().lower() if ext.strip().startswith(".") else "." + ext.strip().lower()
+                ext.strip().lower()
+                if ext.strip().startswith(".")
+                else "." + ext.strip().lower()
                 for ext in self.proc_ext_entry.get().split(",")
                 if ext.strip()
             ]
@@ -358,11 +371,16 @@ class SetupDialog(Toplevel):
             return
 
         if not raw_extensions:
-            messagebox.showerror("Invalid Extensions", "Please enter at least one RAW file extension.")
+            messagebox.showerror(
+                "Invalid Extensions", "Please enter at least one RAW file extension."
+            )
             return
 
         if not processed_extensions:
-            messagebox.showerror("Invalid Extensions", "Please enter at least one processed file extension.")
+            messagebox.showerror(
+                "Invalid Extensions",
+                "Please enter at least one processed file extension.",
+            )
             return
 
         # Parse recursive settings
@@ -371,7 +389,10 @@ class SetupDialog(Toplevel):
             if max_depth < 1:
                 raise ValueError("Depth must be at least 1")
         except ValueError:
-            messagebox.showerror("Invalid Depth", "Please enter a valid number (1 or greater) for max depth.")
+            messagebox.showerror(
+                "Invalid Depth",
+                "Please enter a valid number (1 or greater) for max depth.",
+            )
             return
 
         ignore_folders = [
@@ -384,7 +405,7 @@ class SetupDialog(Toplevel):
         self.config["gui_settings"]["processed_extensions"] = processed_extensions
         self.config["gui_settings"]["recursive_max_depth"] = max_depth
         self.config["gui_settings"]["recursive_ignore_folders"] = ignore_folders
-        
+
         self.save_callback(self.config)
 
         messagebox.showinfo(
@@ -398,7 +419,9 @@ class SetupDialog(Toplevel):
         """Close dialog without saving."""
         # Check if any required paths are missing
         required_keys = ["blender_exe", "luminance_cli_exe"]
-        has_required = any(self.config.get("exe_paths", {}).get(key) for key in required_keys)
+        has_required = any(
+            self.config.get("exe_paths", {}).get(key) for key in required_keys
+        )
 
         if not has_required:
             messagebox.showerror(
