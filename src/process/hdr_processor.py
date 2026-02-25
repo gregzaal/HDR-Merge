@@ -51,76 +51,51 @@ class HDRProcessor:
     def _align_with_opencv(self, img_paths, align_folder, bracket_index, folder):
         """
         Align images using OpenCV's AlignMTB algorithm.
-        
+
         Args:
             img_paths: List of image paths (with ___EV suffix)
             align_folder: Output folder for aligned images
             bracket_index: Bracket set index
             folder: Parent folder for logging
-            
+
         Returns:
             List of aligned image paths (with ___EV suffix)
         """
         self._log("Folder %s: Bracket %d: Aligning images with OpenCV AlignMTB" % (folder.name, bracket_index))
-        
+
         # Extract actual image paths (remove ___EV suffix)
         actual_img_paths = [p.split("___")[0] for p in img_paths]
         ev_values = [p.split("___")[1] for p in img_paths]
-        
-        # Load reference image (first image)
-        ref_img = cv2.imread(actual_img_paths[0], cv2.IMREAD_COLOR)
-        if ref_img is None:
-            raise Exception("Folder %s: Failed to load reference image %s" % (folder.name, actual_img_paths[0]))
-        
-        # Initialize AlignMTB
-        aligner = cv2.AlignMTB()
-        
-        # Calculate offsets for each image relative to reference
-        aligned_paths = []
-        
-        for j, img_path in enumerate(actual_img_paths):
+
+        # Load all images
+        images = []
+        for img_path in actual_img_paths:
             img = cv2.imread(img_path, cv2.IMREAD_COLOR)
             if img is None:
                 raise Exception("Folder %s: Failed to load image %s" % (folder.name, img_path))
-            
-            if j == 0:
-                # Reference image - no alignment needed
-                offsets = (0, 0)
-            else:
-                # Calculate offsets using AlignMTB
-                try:
-                    offsets = aligner.calculateShift(ref_img, img)
-                except Exception as e:
-                    self._log("Folder %s: Bracket %d: OpenCV alignment warning for image %d: %s" % (folder.name, bracket_index, j, e))
-                    offsets = (0, 0)
-            
+            images.append(img)
+
+        # Initialize AlignMTB and align images
+        alignMTB = cv2.createAlignMTB()
+        alignMTB.process(images, images)
+
+        # Save aligned images
+        aligned_paths = []
+
+        for j, aligned_img in enumerate(images):
             # Create output filename
             output_filename = "align_{}_{}.tif".format(bracket_index, str(j).zfill(4))
             output_path = align_folder / output_filename
-            
-            # Apply shift to align the image
-            if offsets != (0, 0):
-                # Create translation matrix
-                translation_matrix = np.float32([[1, 0, offsets[0]], [0, 1, offsets[1]]])
-                # Warp the image to align with reference
-                aligned_img = cv2.warpAffine(
-                    img, 
-                    translation_matrix, 
-                    (ref_img.shape[1], ref_img.shape[0]),
-                    borderMode=cv2.BORDER_REPLICATE
-                )
-            else:
-                aligned_img = img
-            
+
             # Save aligned image
             cv2.imwrite(output_path.as_posix(), aligned_img)
-            
+
             # Add back the EV suffix
             aligned_paths.append(output_path.as_posix() + "___" + ev_values[j])
-        
+
         if VERBOSE:
             self._log("Folder %s: Bracket %d: OpenCV alignment complete, %d images aligned" % (folder.name, bracket_index, len(aligned_paths)))
-        
+
         return aligned_paths
 
     def process_raw_with_rawtherapee(
