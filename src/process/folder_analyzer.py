@@ -40,7 +40,7 @@ def analyze_folder(folder_path: pathlib.Path) -> dict:
     files = []
     for ext in all_extensions:
         files.extend(folder.glob(f"*{ext}"))
-        files.extend(folder.glob(f"*{ext.upper()}"))  # Also check uppercase extensions
+        # files.extend(folder.glob(f"*{ext.upper()}"))  # Also check uppercase extensions
     
     if not files:
         return {"brackets": 0, "sets": 0, "is_raw": False, "extension": ""}

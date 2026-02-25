@@ -3,41 +3,38 @@
 # Contains the GUI interface for HDR Merge Master application.
 # All processing logic is delegated to process modules.
 
-import tkinter as tk
 import pathlib
+import tkinter as tk
 from tkinter import (
     BOTH,
     END,
     HORIZONTAL,
     LEFT,
     RIGHT,
-    SINGLE,
     TOP,
     VERTICAL,
-    X,
-    Y,
     BooleanVar,
     Button,
     Checkbutton,
-    Entry,
     Frame,
     Label,
     Scrollbar,
     Spinbox,
     StringVar,
-    TclError,
+    X,
+    Y,
     filedialog,
     messagebox,
     ttk,
 )
 
 from constants import VERSION
+from process.executor import execute_hdr_processing
+from process.folder_analyzer import analyze_folder, find_subfolders
 from src.config import CONFIG
-from utils.save_config import save_config
 from src.gui.PP3ProfileManager import PP3ProfileManager
 from src.gui.SetupDialog import SetupDialog
-from process.folder_analyzer import analyze_folder, find_subfolders
-from process.executor import execute_hdr_processing
+from utils.save_config import save_config
 
 
 class HDRMergeMaster(Frame):
@@ -54,11 +51,17 @@ class HDRMergeMaster(Frame):
         self.folder_align = {}  # Maps folder path to align setting (bool)
         self._selected_folder = None  # Track currently selected folder
         self._processing_thread = None  # Track processing thread
+        self._last_clipboard = None  # Track last processed clipboard content
 
         # Load saved GUI settings
         self.saved_settings = CONFIG.get("gui_settings", {})
 
         self.initUI()
+
+        # Check clipboard on startup (with a small delay to ensure UI is ready)
+        self.master.after(500, self.check_clipboard)
+        # Bind focus in to check clipboard
+        self.master.bind("<FocusIn>", lambda e: self.check_clipboard())
 
     def initUI(self):
         # Initialize the user interface.
@@ -68,12 +71,6 @@ class HDRMergeMaster(Frame):
 
         padding = 8
         self.buttons_to_disable = []
-
-        clipboard = ""
-        try:
-            clipboard = Frame.clipboard_get(self)
-        except TclError:
-            pass
 
         # ========== Batch Folders (Treeview Table) - Expandable ==========
         r_batch = Frame(master=self)
@@ -94,7 +91,9 @@ class HDRMergeMaster(Frame):
         )
 
         # Configure columns
-        self.batch_table.column("#0", width=0, stretch=tk.NO, minwidth=0)  # Hidden column
+        self.batch_table.column(
+            "#0", width=0, stretch=tk.NO, minwidth=0
+        )  # Hidden column
         self.batch_table.column("folder", anchor=tk.W, width=200, minwidth=100)
         self.batch_table.column("profile", anchor=tk.W, width=80, minwidth=60)
         self.batch_table.column("extension", anchor=tk.W, width=50, minwidth=40)
@@ -114,7 +113,9 @@ class HDRMergeMaster(Frame):
         self.batch_table.heading("sets", text="Sets", anchor=tk.W)
 
         # Add scrollbar
-        table_scrollbar = Scrollbar(table_frame, orient=VERTICAL, command=self.batch_table.yview)
+        table_scrollbar = Scrollbar(
+            table_frame, orient=VERTICAL, command=self.batch_table.yview
+        )
         table_scrollbar.pack(side=RIGHT, fill=BOTH)
         self.batch_table.configure(yscrollcommand=table_scrollbar.set)
 
@@ -241,7 +242,7 @@ class HDRMergeMaster(Frame):
         # Clear all existing items
         for item in self.batch_table.get_children():
             self.batch_table.delete(item)
-        
+
         # Add folders with their profile info and stats
         for folder in self.batch_folders:
             profile_name = self.folder_profiles.get(folder, "")
@@ -253,33 +254,56 @@ class HDRMergeMaster(Frame):
             raw_text = "Yes" if is_raw else "No"
             align = self.folder_align.get(folder, False)
             align_text = "Yes" if align else "No"
-            self.batch_table.insert("", END, iid=folder, values=(folder, profile_name, extension, raw_text, align_text, brackets, sets))
+            self.batch_table.insert(
+                "",
+                END,
+                iid=folder,
+                values=(
+                    folder,
+                    profile_name,
+                    extension,
+                    raw_text,
+                    align_text,
+                    brackets,
+                    sets,
+                ),
+            )
 
     def add_to_batch(self):
         """Show file browser and add selected folder(s) to batch list."""
         path = filedialog.askdirectory()
         if not path:
             return
-        
+        self.add_path_to_batch(path)
+
+    def add_path_to_batch(self, path):
+        """Add a specific folder path to the batch list."""
+        if not path:
+            return
+
+        # Normalize the input path
+        base_path_obj = pathlib.Path(path).absolute()
+
         # Determine folders to add
         folders_to_add = []
-        
+
         if self.do_recursive_option.get():
             # Find all subfolders with HDR files
             gui_settings = CONFIG.get("gui_settings", {})
             max_depth = gui_settings.get("recursive_max_depth", 1)
             ignore_folders = gui_settings.get("recursive_ignore_folders", ["Merged"])
-            
-            subfolders = find_subfolders(pathlib.Path(path), max_depth, ignore_folders)
-            folders_to_add = [str(f) for f in subfolders]
+
+            subfolders = find_subfolders(base_path_obj, max_depth, ignore_folders)
+            folders_to_add = [str(f.absolute()) for f in subfolders]
         else:
-            folders_to_add = [path]
-        
+            folders_to_add = [str(base_path_obj)]
+
+        added_any = False
         # Add each folder
         for folder_path in folders_to_add:
             if folder_path in self.batch_folders:
                 continue
-            
+
             # Analyze the folder for brackets and sets (uses config extension lists)
             analysis = analyze_folder(pathlib.Path(folder_path))
 
@@ -297,12 +321,38 @@ class HDRMergeMaster(Frame):
 
             # Store the folder stats (full analysis dict)
             self.folder_stats[folder_path] = analysis
-        
-        # Initialize align setting for new folder (default to False)
-        if folder_path not in self.folder_align:
-            self.folder_align[folder_path] = False
-        
-        self.update_batch_display()
+
+            # Initialize align setting for new folder
+            if folder_path not in self.folder_align:
+                self.folder_align[folder_path] = self.do_align.get()
+
+            added_any = True
+
+        if added_any:
+            self.update_batch_display()
+
+    def check_clipboard(self):
+        """Check clipboard for a valid directory path and add it if found."""
+        try:
+            clipboard = self.master.clipboard_get()
+            if not clipboard or not isinstance(clipboard, str):
+                return
+
+            # Clean up: strip whitespace and quotes (often present when "Copy as path" in Windows)
+            path_str = clipboard.strip().strip("\"")
+
+            if self._last_clipboard == path_str:
+                return
+
+            self._last_clipboard = path_str
+
+            path_obj = pathlib.Path(path_str)
+            if path_obj.is_dir():
+                # If it's a valid directory, add it to batch
+                self.add_path_to_batch(str(path_obj.absolute()))
+        except Exception:
+            # Clipboard might be empty or not contain text
+            pass
 
     def remove_from_batch(self):
         """Remove selected folder from batch list."""
@@ -310,7 +360,7 @@ class HDRMergeMaster(Frame):
         if not selection:
             messagebox.showwarning("No Selection", "Please select a folder to remove.")
             return
-        
+
         for item in selection:
             folder = self.batch_table.item(item)["values"][0]
             if folder in self.batch_folders:
@@ -319,7 +369,7 @@ class HDRMergeMaster(Frame):
                 del self.folder_profiles[folder]
             if folder in self.folder_align:
                 del self.folder_align[folder]
-        
+
         self.update_batch_display()
 
     def clear_batch(self):
@@ -340,16 +390,16 @@ class HDRMergeMaster(Frame):
         if not selection:
             self._selected_folder = None
             return
-        
+
         # Get the first selected item
         item = selection[0]
         folder = self.batch_table.item(item)["values"][0]
         self._selected_folder = folder
-        
+
         # Update align checkbox to match folder's setting
         align_setting = self.folder_align.get(folder, False)
         self.do_align.set(align_setting)
-        
+
         # Check if folder contains RAW files
         stats = self.folder_stats.get(folder, {})
         if not stats.get("is_raw", False):
@@ -367,7 +417,7 @@ class HDRMergeMaster(Frame):
             # No folder selected, just update the saved setting for future folders
             self.saved_settings["do_align"] = self.do_align.get()
             return
-        
+
         # Toggle the align setting for the selected folder
         self.folder_align[self._selected_folder] = self.do_align.get()
         self.update_batch_display()
@@ -443,7 +493,7 @@ class HDRMergeMaster(Frame):
             self.folder_profiles[folder] = selected_profile
         elif folder in self.folder_profiles:
             del self.folder_profiles[folder]
-        
+
         # Update the table display to show the new profile
         self.update_batch_display()
 
@@ -453,7 +503,6 @@ class HDRMergeMaster(Frame):
 
     def open_setup_dialog(self):
         """Open the Setup dialog for configuring executable paths and settings."""
-        from src.gui.SetupDialog import SetupDialog
 
         def on_setup_save(config):
             save_config(config)
@@ -466,7 +515,6 @@ class HDRMergeMaster(Frame):
 
     def refresh_folder_profiles(self):
         """Refresh folder-to-profile mappings after profiles are modified."""
-        old_mappings = dict(self.folder_profiles)
         self.folder_profiles.clear()
 
         for folder in self.batch_folders:
@@ -508,21 +556,34 @@ class HDRMergeMaster(Frame):
             )
             return
 
-        # Validate RAW processing settings if enabled
-        if self.do_raw.get():
-            profiles = CONFIG.get("pp3_profiles", [])
-            if not profiles:
+        # Validate RAW processing settings for folders that need it
+        profiles = CONFIG.get("pp3_profiles", [])
+        for folder in self.batch_folders:
+            stats = self.folder_stats.get(folder, {})
+            if stats.get("is_raw", False) and not profiles:
                 messagebox.showerror(
                     "PP3 Profile Required",
-                    "RAW processing is enabled but no PP3 profiles are configured!\n\n"
+                    f"RAW processing is required for folder '{folder}' but no PP3 profiles are configured!\n\n"
                     "Please add at least one PP3 profile using 'Manage Profiles...'.",
                 )
                 return
 
-        extension = ".tif"  # Default extension, analyzer will detect actual files
         threads = int(self.num_threads.get())
-        do_align = self.do_align.get()
         do_recursive = self.do_recursive_option.get()
+
+        # Build folder_data list from pre-analyzed stats
+        folder_data = []
+        for folder in self.batch_folders:
+            stats = self.folder_stats.get(folder, {})
+            folder_data.append(
+                {
+                    "path": folder,
+                    "is_raw": stats.get("is_raw", False),
+                    "extension": stats.get("extension", ".tif"),
+                    "brackets": stats.get("brackets", 0),
+                    "sets": stats.get("sets", 0),
+                }
+            )
 
         # Disable buttons during processing
         for btn in self.buttons_to_disable:
@@ -532,12 +593,10 @@ class HDRMergeMaster(Frame):
 
         # Create and start the processing thread
         self._processing_thread = execute_hdr_processing(
-            batch_folders=self.batch_folders,
+            folder_data=folder_data,
             folder_profiles=self.folder_profiles,
-            extension=extension,
+            folder_align=self.folder_align,
             threads=threads,
-            do_align=do_align,
-            do_raw=False,  # RAW processing removed from UI, auto-detected
             do_recursive=do_recursive,
             progress_callback=self._on_progress_update,
             completion_callback=self._on_processing_complete,

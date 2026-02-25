@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+    
+        {
+            "name": "Python: Current File (uv)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "C:\\Users\\Savva\\HDR-Merge-Master\\hdr_brackets.py",
+            "console": "integratedTerminal",
+            "justMyCode": "True"
+        }
+    ]
+}
