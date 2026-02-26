@@ -13,7 +13,6 @@ from datetime import datetime
 from process.executor import execute_hdr_processing
 from process.folder_analyzer import analyze_folder, find_subfolders
 from src.config import CONFIG
-from utils.save_config import save_config
 
 
 def load_batch_file(batch_path: str) -> list:
@@ -125,11 +124,10 @@ def run_headless_processing(
     Returns:
         dict: Processing results
     """
-    from src.config import CONFIG
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("HDR Merge Master - Headless Processing")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Validate batch list
     if not batch_list:
@@ -179,9 +177,15 @@ def run_headless_processing(
     for fd in folder_data:
         folder_name = pathlib.Path(fd["path"]).name
         raw_status = "RAW" if fd["is_raw"] else "Processed"
-        profile_info = f" (Profile: {folder_profiles.get(fd['path'], 'N/A')})" if fd["is_raw"] else ""
+        profile_info = (
+            f" (Profile: {folder_profiles.get(fd['path'], 'N/A')})"
+            if fd["is_raw"]
+            else ""
+        )
         align_info = " [Align]" if folder_align.get(fd["path"], False) else ""
-        print(f"  - {folder_name}: {fd['sets']} sets, {fd['brackets']} brackets ({raw_status}){profile_info}{align_info}")
+        print(
+            f"  - {folder_name}: {fd['sets']} sets, {fd['brackets']} brackets ({raw_status}){profile_info}{align_info}"
+        )
 
     print(f"\nStarting processing at {datetime.now().strftime('%H:%M:%S')}...\n")
 
@@ -199,7 +203,10 @@ def run_headless_processing(
             print(message)
         else:
             # Print only important messages
-            if any(keyword in message.lower() for keyword in ["error", "done", "total", "starting"]):
+            if any(
+                keyword in message.lower()
+                for keyword in ["error", "done", "total", "starting"]
+            ):
                 print(message)
 
     results = {}
@@ -225,13 +232,13 @@ def run_headless_processing(
     processing_thread.join()
 
     if results:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Processing Complete!")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Duration: {results.get('duration', 0):.1f} seconds")
         print(f"Total sets processed: {results.get('total_sets', 0)}")
         print(f"Threads used: {results.get('threads', threads)}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
         return {"success": True, **results}
     else:
         print("\nError: Processing completed without results!")
@@ -261,42 +268,48 @@ Examples:
 
     # Batch file option
     parser.add_argument(
-        "-b", "--batch",
+        "-b",
+        "--batch",
         metavar="FILE",
         help="Load batch folder list from a JSON file",
     )
 
     # Single folder option
     parser.add_argument(
-        "-f", "--folder",
+        "-f",
+        "--folder",
         metavar="PATH",
         help="Add a single folder to process",
     )
 
     # Recursive option for --folder
     parser.add_argument(
-        "-r", "--recursive",
+        "-r",
+        "--recursive",
         action="store_true",
         help="Process subfolders recursively (with --folder)",
     )
 
     # Profile option
     parser.add_argument(
-        "-p", "--profile",
+        "-p",
+        "--profile",
         metavar="NAME",
         help="PP3 profile name to use (for RAW files)",
     )
 
     # Align option
     parser.add_argument(
-        "-a", "--align",
+        "-a",
+        "--align",
         action="store_true",
         help="Enable image alignment",
     )
 
     # Threads option
     parser.add_argument(
-        "-t", "--threads",
+        "-t",
+        "--threads",
         type=int,
         default=6,
         metavar="N",
@@ -305,14 +318,16 @@ Examples:
 
     # Cleanup option
     parser.add_argument(
-        "-c", "--cleanup",
+        "-c",
+        "--cleanup",
         action="store_true",
         help="Cleanup temporary files after processing",
     )
 
     # Verbose option
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Print detailed progress information",
     )

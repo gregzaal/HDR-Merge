@@ -23,4 +23,5 @@
 
 ## Big changes: 
 - [ ] Replace Blender merging with custom solution that includes deghosting & weighted merging to reduce noise. Possibly built with [OpenCV](https://learnopencv.com/high-dynamic-range-hdr-imaging-using-opencv-cpp-python)
-- [ ] Either expose options for align_image_stack.exe, or replace with [OpenCV implementation](https://github.com/khufkens/align_images/blob/master/align_images.py)
+- [x] Either expose options for align_image_stack.exe, or replace with [OpenCV implementation](https://github.com/khufkens/align_images/blob/master/align_images.py)
+- OpenCV AlignMTB added as an option

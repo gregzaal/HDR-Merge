@@ -29,7 +29,7 @@ This program is a simple python script that can be run straight from the `.py` s
 
 You will need:
 
-* [Python 3.5+](https://www.python.org/downloads/release/python-354/)
+* [Python 3.14+](https://www.python.org/downloads/)
 
 Install dependencies with:
 
