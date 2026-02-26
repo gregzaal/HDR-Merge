@@ -1,9 +1,19 @@
+import sys
+
+from src.config import CONFIG
+
+# Check for CLI mode first (before importing tkinter)
+if "--cli" in sys.argv:
+    from src.cli import main as cli_main
+    cli_main()
+    sys.exit(0)
+
 from tkinter import (
     PhotoImage,
     Tk,
 )
 
-from src.config import SCRIPT_DIR, CONFIG
+from src.config import SCRIPT_DIR
 from src.center import center
 from src.gui.HDRMergeMaster import HDRMergeMaster
 from src.gui.SetupDialog import SetupDialog
