@@ -28,6 +28,8 @@ from tkinter import (
     ttk,
 )
 
+import json
+
 from constants import VERSION
 from process.executor import execute_hdr_processing
 from process.folder_analyzer import analyze_folder, find_subfolders
@@ -143,6 +145,17 @@ class HDRMergeMaster(Frame):
             btn_batch_frame, text="Clear All", command=self.clear_batch, width=8
         )
         btn_clear.pack(side=TOP, fill=Y, pady=(2, 0))
+
+        # Export/Import buttons
+        btn_export = Button(
+            btn_batch_frame, text="Export", command=self.export_batch, width=8
+        )
+        btn_export.pack(side=TOP, pady=(4, 2))
+
+        btn_import = Button(
+            btn_batch_frame, text="Import", command=self.import_batch, width=8
+        )
+        btn_import.pack(side=TOP, pady=2)
 
         # Recursive checkbox at bottom of button stack
         self.do_recursive_option = BooleanVar()
@@ -408,6 +421,117 @@ class HDRMergeMaster(Frame):
             self.folder_profiles.clear()
             self.folder_align.clear()
             self.update_batch_display()
+
+    def export_batch(self):
+        """Export batch list with all options and parameters to a JSON file."""
+        if not self.batch_folders:
+            messagebox.showwarning("No Batch Data", "No folders in batch list to export.")
+            return
+
+        # Build export data with all folder information
+        export_data = {
+            "version": VERSION,
+            "folders": []
+        }
+
+        for folder in self.batch_folders:
+            stats = self.folder_stats.get(folder, {})
+            folder_data = {
+                "path": folder,
+                "profile": self.folder_profiles.get(folder, ""),
+                "align": self.folder_align.get(folder, False),
+                "extension": stats.get("extension", ""),
+                "is_raw": stats.get("is_raw", False),
+                "brackets": stats.get("brackets", 0),
+                "sets": stats.get("sets", 0),
+            }
+            export_data["folders"].append(folder_data)
+
+        # Ask user where to save the JSON file
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Export Batch List"
+        )
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(export_data, f, indent=2)
+            messagebox.showinfo("Export Successful", f"Batch list exported to:\n{file_path}")
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export batch list:\n{str(e)}")
+
+    def import_batch(self):
+        """Import batch list with all options and parameters from a JSON file."""
+        # Ask user to select a JSON file
+        file_path = filedialog.askopenfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Import Batch List"
+        )
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                import_data = json.load(f)
+
+            if "folders" not in import_data:
+                raise ValueError("Invalid batch file format: missing 'folders' key")
+
+            # Ask user if they want to merge or replace
+            if self.batch_folders:
+                result = messagebox.askyesnocancel(
+                    "Import Options",
+                    "Batch list already contains folders.\n\n"
+                    "Yes - Merge imported folders with existing list\n"
+                    "No - Replace existing list with imported folders\n"
+                    "Cancel - Abort import"
+                )
+                if result is None:  # Cancel
+                    return
+                if result is False:  # Replace
+                    self.batch_folders.clear()
+                    self.folder_profiles.clear()
+                    self.folder_align.clear()
+                    self.folder_stats.clear()
+
+            # Import folders
+            imported_count = 0
+            for folder_data in import_data["folders"]:
+                folder_path = folder_data.get("path")
+                if not folder_path:
+                    continue
+
+                # Skip if already in batch (for merge mode)
+                if folder_path in self.batch_folders:
+                    continue
+
+                self.batch_folders.append(folder_path)
+                self.folder_profiles[folder_path] = folder_data.get("profile", "")
+                self.folder_align[folder_path] = folder_data.get("align", False)
+
+                # Restore stats
+                self.folder_stats[folder_path] = {
+                    "extension": folder_data.get("extension", ""),
+                    "is_raw": folder_data.get("is_raw", False),
+                    "brackets": folder_data.get("brackets", 0),
+                    "sets": folder_data.get("sets", 0),
+                }
+                imported_count += 1
+
+            self.update_batch_display()
+            messagebox.showinfo(
+                "Import Successful",
+                f"Successfully imported {imported_count} folder(s) from:\n{file_path}"
+            )
+
+        except json.JSONDecodeError as e:
+            messagebox.showerror("Import Error", f"Invalid JSON file:\n{str(e)}")
+        except Exception as e:
+            messagebox.showerror("Import Error", f"Failed to import batch list:\n{str(e)}")
 
     def on_batch_select(self, event=None):
         """Update profile dropdown and align checkbox when a folder is selected."""
