@@ -1,3 +1,18 @@
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+
+# Compilation mode, support OS-specific options
+# nuitka-project-if: {OS} in ("Windows", "Linux", "Darwin", "FreeBSD"):
+#    nuitka-project: --mode=onefile
+# nuitka-project-else:
+#    nuitka-project: --mode=standalone
+
+# The PySide6 plugin covers qt-plugins
+# nuitka-project: --enable-plugin=pyside6
+# nuitka-project: --include-qt-plugins=qml
+
 import sys
 
 from src.config import CONFIG
@@ -5,6 +20,7 @@ from src.config import CONFIG
 # Check for CLI mode first (before importing tkinter)
 if "--cli" in sys.argv:
     from src.cli import main as cli_main
+
     cli_main()
     sys.exit(0)
 
@@ -13,13 +29,14 @@ from tkinter import (
     Tk,
 )
 
-from src.config import SCRIPT_DIR
 from src.center import center
+from src.config import SCRIPT_DIR
 from src.gui.HDRMergeMaster import HDRMergeMaster
 from src.gui.SetupDialog import SetupDialog
 from utils.save_config import save_config
 
 EXE_PATHS = CONFIG.get("exe_paths", {})
+
 
 def main():
 
@@ -46,14 +63,17 @@ def main():
         # Show setup dialog first
         def on_setup_save(config):
             save_config(config)
+
         setup_dialog = SetupDialog(root, CONFIG, on_setup_save)
         setup_dialog.wait_window()
         # Reload config after setup
         from src.config import reload_config
+
         CONFIG.update(reload_config())
 
     HDRMergeMaster(root)
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()

@@ -2,7 +2,7 @@ Metadata-Version: 2.4
 Name: hdr-merge-master
 Version: 1.3.0
 Summary: A script that uses Blender's compositor to reliably merge exposure brackets to a 32-bit EXR file. 
-Requires-Python: >=3.14
+Requires-Python: ==3.13.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: exifread>=3.5.1

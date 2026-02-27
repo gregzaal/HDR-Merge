@@ -3,7 +3,7 @@ name = "hdr-merge-master"
 version = "1.3.0"
 description = "A script that uses Blender's compositor to reliably merge exposure brackets to a 32-bit EXR file. "
 readme = "readme.md"
-requires-python = ">=3.14"
+requires-python = "==3.13.12"
 dependencies = [
     "exifread>=3.5.1",
     "opencv-python>=4.13.0.92",
@@ -11,7 +11,11 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = []
+dev = [
+    "nuitka>=4.0.1",
+    "pyside6>=6.10.2",
+    "ziglang>=0.15.2",
+]
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]

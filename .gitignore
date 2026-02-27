@@ -7,3 +7,6 @@ config.json
 *.pts
 __pycache__
 *.pp3
+hdr_brackets.build/
+hdr_brackets.dist/
+hdr_brackets.onefile-build/

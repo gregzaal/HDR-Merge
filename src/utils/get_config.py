@@ -1,5 +1,5 @@
-from utils.read_json import read_json
-from utils.get_default_config import get_default_config
+from .read_json import read_json
+from .get_default_config import get_default_config
 
 import json
 import pathlib

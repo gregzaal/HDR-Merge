@@ -1,0 +1,49 @@
+<?xml version='1.0' encoding='utf8'?>
+<nuitka-compilation-report nuitka_version="4.0.1" nuitka_commercial_version="not installed" mode="onefile" completion="error exit message (1)" exit_message="pyside6: Error, failed to locate the 'PySide6' installation.">
+  <performance>
+    <memory_usage name="after_launch" value="37527552" />
+  </performance>
+  <data_composer blob_size="None" />
+  <command_line>
+    <option value="--mode=onefile" />
+    <option value="--enable-plugin=pyside6" />
+    <option value="--include-qt-plugins=qml" />
+    <option value=".\hdr_brackets.py" />
+  </command_line>
+  <plugins>
+    <plugin name="anti-bloat" user_enabled="no" />
+    <plugin name="data-files" user_enabled="no" />
+    <plugin name="delvewheel" user_enabled="no" />
+    <plugin name="dll-files" user_enabled="no" />
+    <plugin name="eventlet" user_enabled="no" />
+    <plugin name="gevent" user_enabled="no" />
+    <plugin name="gi" user_enabled="no" />
+    <plugin name="glfw" user_enabled="no" />
+    <plugin name="implicit-imports" user_enabled="no" />
+    <plugin name="kivy" user_enabled="no" />
+    <plugin name="matplotlib" user_enabled="no" />
+    <plugin name="multiprocessing" user_enabled="no" />
+    <plugin name="options-nanny" user_enabled="no" />
+    <plugin name="pbr-compat" user_enabled="no" />
+    <plugin name="pkg-resources" user_enabled="no" />
+    <plugin name="playwright" user_enabled="no" />
+    <plugin name="pyside6" user_enabled="yes" />
+    <plugin name="pywebview" user_enabled="no" />
+    <plugin name="spacy" user_enabled="no" />
+    <plugin name="transformers" user_enabled="no" />
+  </plugins>
+  <onefile cache_mode="temporary" unpack_dir="{TEMP}\onefile_{PID}_{TIME}" />
+  <distributions />
+  <python python_exe="${sys.prefix}\Scripts\python.exe" python_flavor="CPython Official" python_version="3.14.3" os_name="Windows" os_release="11" arch_name="x86_64" filesystem_encoding="utf-8" gil="yes">
+    <search_path>
+      <path value="${cwd}" />
+      <path value="${sys.real_prefix}\DLLs" />
+      <path value="${sys.real_prefix}\Lib" />
+      <path value="${sys.real_prefix}" />
+      <path value="${sys.prefix}" />
+      <path value="${sys.prefix}\Lib\site-packages" />
+      <path value="${cwd}\src" />
+    </search_path>
+  </python>
+  <output />
+</nuitka-compilation-report>
