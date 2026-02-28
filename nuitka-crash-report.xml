@@ -1,14 +1,22 @@
 <?xml version='1.0' encoding='utf8'?>
 <nuitka-compilation-report nuitka_version="4.0.1" nuitka_commercial_version="not installed" mode="onefile" completion="error exit message (1)" exit_message="pyside6: Error, failed to locate the 'PySide6' installation.">
   <performance>
-    <memory_usage name="after_launch" value="37527552" />
+    <memory_usage name="after_launch" value="53735424" />
   </performance>
   <data_composer blob_size="None" />
   <command_line>
     <option value="--mode=onefile" />
     <option value="--enable-plugin=pyside6" />
     <option value="--include-qt-plugins=qml" />
-    <option value=".\hdr_brackets.py" />
+    <option value="--mode=onefile" />
+    <option value="--assume-yes-for-downloads" />
+    <option value="--enable-plugin=tk-inter" />
+    <option value="--enable-plugin=pyside6" />
+    <option value="--include-data-dir=blender=blender" />
+    <option value="--include-data-dir=icons=icons" />
+    <option value="--output-dir=build" />
+    <option value="--output-filename=hdr_merge_master" />
+    <option value="src/hdr_brackets.py" />
   </command_line>
   <plugins>
     <plugin name="anti-bloat" user_enabled="no" />
@@ -30,19 +38,21 @@
     <plugin name="pyside6" user_enabled="yes" />
     <plugin name="pywebview" user_enabled="no" />
     <plugin name="spacy" user_enabled="no" />
+    <plugin name="tk-inter" user_enabled="yes" />
     <plugin name="transformers" user_enabled="no" />
   </plugins>
-  <onefile cache_mode="temporary" unpack_dir="{TEMP}\onefile_{PID}_{TIME}" />
+  <onefile cache_mode="temporary" unpack_dir="{TEMP}/onefile_{PID}_{TIME}" />
   <distributions />
-  <python python_exe="${sys.prefix}\Scripts\python.exe" python_flavor="CPython Official" python_version="3.14.3" os_name="Windows" os_release="11" arch_name="x86_64" filesystem_encoding="utf-8" gil="yes">
+  <python python_exe="${sys.prefix}/bin/python3" python_flavor="Fedora Python" python_version="3.13.5" os_name="Linux" os_release="Fedora-42" arch_name="x86_64" filesystem_encoding="utf-8" gil="yes">
     <search_path>
       <path value="${cwd}" />
-      <path value="${sys.real_prefix}\DLLs" />
-      <path value="${sys.real_prefix}\Lib" />
-      <path value="${sys.real_prefix}" />
-      <path value="${sys.prefix}" />
-      <path value="${sys.prefix}\Lib\site-packages" />
-      <path value="${cwd}\src" />
+      <path value="${cwd}/src" />
+      <path value="${sys.prefix}/lib64/python3.13" />
+      <path value="${sys.prefix}/lib64/python3.13/lib-dynload" />
+      <path value="~/.local/lib/python3.13/site-packages" />
+      <path value="${sys.prefix}/lib64/python3.13/site-packages" />
+      <path value="${sys.prefix}/lib/python3.13/site-packages" />
+      <path value="${sys.prefix}/lib/python3.13/site-packages/setuptools/_vendor" />
     </search_path>
   </python>
   <output />

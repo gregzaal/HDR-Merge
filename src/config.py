@@ -9,15 +9,21 @@ import pathlib
 
 from utils.get_config import get_config
 
+SCRIPT_DIR = None
+CONFIG = None
 
-if getattr(sys, "frozen", False):
-    SCRIPT_DIR = pathlib.Path(sys.executable).parent  # Built with cx_freeze
-else:
-    SCRIPT_DIR = pathlib.Path(__file__).resolve().parent.parent
 
-# Import get_config after SCRIPT_DIR is defined to avoid circular imports
+def init():
+    """Initialize module-level configuration variables."""
+    global SCRIPT_DIR, CONFIG
 
-CONFIG = get_config(SCRIPT_DIR)
+    if getattr(sys, "frozen", False):
+        SCRIPT_DIR = pathlib.Path(sys.executable).parent  # Built with cx_freeze
+    else:
+        SCRIPT_DIR = pathlib.Path(__file__).resolve().parent.parent
+
+    # Import get_config after SCRIPT_DIR is defined to avoid circular imports
+    CONFIG = get_config(SCRIPT_DIR)
 
 
 def reload_config() -> dict:
