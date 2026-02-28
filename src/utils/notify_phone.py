@@ -1,4 +1,4 @@
-from src.config import SCRIPT_DIR
+from config import SCRIPT_DIR
 
 
 import sys

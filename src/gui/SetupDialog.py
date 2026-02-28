@@ -24,7 +24,7 @@ from tkinter import (
     ttk,
 )
 
-from src.center import center
+from center import center
 
 
 class SetupDialog(Toplevel):

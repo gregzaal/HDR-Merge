@@ -13,11 +13,11 @@ from datetime import datetime
 
 import cv2
 
-from src.constants import VERBOSE
-from src.process.run_subprocess_with_prefix import run_subprocess_with_prefix
-from src.utils.chunks import chunks
-from src.utils.ev_diff import ev_diff
-from src.utils.get_exif import get_exif
+from constants import VERBOSE
+from process.run_subprocess_with_prefix import run_subprocess_with_prefix
+from utils.chunks import chunks
+from utils.ev_diff import ev_diff
+from utils.get_exif import get_exif
 
 
 class HDRProcessor:

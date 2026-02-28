@@ -30,13 +30,13 @@ from tkinter import (
 
 import json
 
-from src.constants import VERSION
-from src.process.executor import execute_hdr_processing
-from src.process.folder_analyzer import analyze_folder, find_subfolders
-from src.config import CONFIG
-from src.gui.PP3ProfileManager import PP3ProfileManager
-from src.gui.SetupDialog import SetupDialog
-from src.utils.save_config import save_config
+from constants import VERSION
+from process.executor import execute_hdr_processing
+from process.folder_analyzer import analyze_folder, find_subfolders
+from config import CONFIG
+from gui.PP3ProfileManager import PP3ProfileManager
+from gui.SetupDialog import SetupDialog
+from utils.save_config import save_config
 
 
 class HDRMergeMaster(Frame):

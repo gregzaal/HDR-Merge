@@ -1,4 +1,4 @@
-from src.center import center
+from center import center
 import pathlib
 from tkinter import END, LEFT, RIGHT, X, Button, Entry, Frame, Label, Toplevel, filedialog
 

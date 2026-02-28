@@ -11,10 +11,10 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from time import sleep
 
-from src.process.hdr_processor import HDRProcessor
-from src.config import CONFIG, SCRIPT_DIR
-from src.utils.notify_phone import notify_phone
-from src.utils.save_config import save_config
+from process.hdr_processor import HDRProcessor
+from config import CONFIG, SCRIPT_DIR
+from utils.notify_phone import notify_phone
+from utils.save_config import save_config
 
 
 class HDRExecutor:

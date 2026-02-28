@@ -12,7 +12,7 @@ from datetime import datetime
 
 from process.executor import execute_hdr_processing
 from process.folder_analyzer import analyze_folder, find_subfolders
-from src.config import CONFIG
+from config import CONFIG
 
 
 def load_batch_file(batch_path: str) -> list:

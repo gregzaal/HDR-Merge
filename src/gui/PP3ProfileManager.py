@@ -1,5 +1,5 @@
-from src.center import center
-from src.gui.EditProfileDialog import EditProfileDialog
+from center import center
+from gui.EditProfileDialog import EditProfileDialog
 
 
 

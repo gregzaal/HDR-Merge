@@ -6,7 +6,7 @@ Automatically uses extension lists from config.
 """
 
 import pathlib
-from src.config import CONFIG
+from config import CONFIG
 from utils.get_exif import get_exif
 
 
