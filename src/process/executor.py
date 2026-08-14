@@ -43,6 +43,7 @@ class HDRExecutor:
         progress_callback=None,
         completion_callback=None,
         log_callback=None,
+        folder_mtb_align: dict = None,
     ):
         """
         Initialize the HDR executor.
@@ -50,16 +51,19 @@ class HDRExecutor:
         Args:
             folder_data: List of dicts with folder info (path, is_raw, extension, brackets, sets)
             folder_profiles: Dict mapping folder paths to PP3 profile names
-            folder_align: Dict mapping folder paths to align settings (bool)
+            folder_align: Dict mapping folder paths to Hugin align settings (bool)
             threads: Number of worker threads
             do_recursive: Whether to process subfolders recursively
             progress_callback: Callback for progress updates (value 0-100)
             completion_callback: Callback when processing completes
             log_callback: Callback for log messages
+            folder_mtb_align: Dict mapping folder paths to MTB align settings (bool).
+                Mutually exclusive with folder_align per folder.
         """
         self.folder_data = folder_data
         self.folder_profiles = folder_profiles
         self.folder_align = folder_align
+        self.folder_mtb_align = folder_mtb_align or {}
         self.threads = threads
         self.do_recursive = do_recursive
         self.progress_callback = progress_callback
@@ -187,8 +191,9 @@ class HDRExecutor:
                 profile = self._get_profile_for_folder(str(proc_folder), profiles)
                 folder_pp3_file = profile.get("path", "") if profile else ""
 
-                # Get folder-specific align setting
+                # Get folder-specific align settings (mutually exclusive)
                 do_align = self.folder_align.get(str(proc_folder), False)
+                do_mtb_align = self.folder_mtb_align.get(str(proc_folder), not do_align)
 
                 brackets, sets, threads, error = self.processor.process_folder(
                     proc_folder,
@@ -199,6 +204,7 @@ class HDRExecutor:
                     merge_py,
                     extension,
                     do_align,
+                    do_mtb_align,
                     is_raw,
                     rawtherapee_cli_exe,
                     folder_pp3_file,
@@ -257,6 +263,7 @@ def execute_hdr_processing(
     progress_callback=None,
     completion_callback=None,
     log_callback=None,
+    folder_mtb_align: dict = None,
 ) -> threading.Thread:
     """
     Start HDR processing in a background thread.
@@ -269,12 +276,14 @@ def execute_hdr_processing(
             - brackets: int, number of brackets
             - sets: int, number of sets
         folder_profiles: Dict mapping folder paths to PP3 profile names
-        folder_align: Dict mapping folder paths to align settings (bool)
+        folder_align: Dict mapping folder paths to Hugin align settings (bool)
         threads: Number of worker threads
         do_recursive: Whether to process subfolders recursively
         progress_callback: Callback for progress updates (value 0-100)
         completion_callback: Callback when processing completes
         log_callback: Callback for log messages
+        folder_mtb_align: Dict mapping folder paths to MTB align settings (bool),
+            mutually exclusive with folder_align per folder
 
     Returns:
         threading.Thread: The background thread running the processing
@@ -288,6 +297,7 @@ def execute_hdr_processing(
         progress_callback=progress_callback,
         completion_callback=completion_callback,
         log_callback=log_callback,
+        folder_mtb_align=folder_mtb_align,
     )
 
     thread = threading.Thread(target=executor.execute)

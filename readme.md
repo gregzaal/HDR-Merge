@@ -66,7 +66,7 @@ Then:
 1. Select a folder that contains your full set of exposure brackets (see *Example Folder Structure* below). You can now add multiple folders to the input folders for batch processing.
 2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but if you want to use RAW files from your camera, **you need to install RawTherapee and enable the RAW option in the UI**. I typically do some minor tweaks to the RAW files in RawTherapee first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script.
 3. Choose the number of threads (the number of simultaneous bracketed exposures to merge). Use as many threads as you can without running out of RAM or freezing your computer. In my experience 6 threads usually works fine for 32 GB RAM, but this depends on your camera resolution.
-4. Choose whether to align the images before merging.
+4. Choose an alignment mode for the selected folder: **None** (no alignment; Translate nodes are still added in Blender so you can adjust alignment manually afterwards), **Hugin** (external pre-align via `align_image_stack`), or **MTB** (alignment computed inside Blender via OpenCV, default). These are mutually exclusive per folder.
 5. The "Recursive" option will iterate through all subfolders of your selected folder.
 6. Click *Create HDRs*, and monitor the console window for progress and errors.
 7. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files, while the `jpg` folder contains tonemapped versions of those files.
@@ -121,7 +121,8 @@ python hdr_brackets.py --cli [options]
 | `--folder <PATH>` | `-f` | Add a single folder to process |
 | `--recursive` | `-r` | Process subfolders recursively (with `--folder`) |
 | `--profile <NAME>` | `-p` | PP3 profile name to use (for RAW files) |
-| `--align` | `-a` | Enable image alignment |
+| `--align` | `-a` | Enable Hugin-based alignment (shorthand for `--align-mode hugin`) |
+| `--align-mode <MODE>` | | Alignment mode: `none`, `hugin`, or `mtb` (default: `mtb`). Mutually exclusive; overrides `--align` |
 | `--threads <N>` | `-t` | Number of worker threads (default: 6) |
 | `--cleanup` | `-c` | Cleanup temporary files after processing |
 | `--verbose` | `-v` | Print detailed progress information |
@@ -162,6 +163,7 @@ You can export and import batch lists from the GUI using the Export/Import butto
       "path": "C:/Images/Folder1",
       "profile": "My Profile",
       "align": true,
+      "mtb_align": false,
       "extension": ".tif",
       "is_raw": false,
       "brackets": 3,
@@ -170,6 +172,8 @@ You can export and import batch lists from the GUI using the Export/Import butto
   ]
 }
 ```
+
+Note: `align` (Hugin, external pre-align) and `mtb_align` (MTB, inside Blender) are mutually exclusive per folder. If both are omitted, `mtb_align` defaults to `true`.
 
 Note: In CLI mode, processing begins automatically once all folders are loaded.
 

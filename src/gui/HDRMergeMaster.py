@@ -18,6 +18,7 @@ from tkinter import (
     Checkbutton,
     Frame,
     Label,
+    Radiobutton,
     Scrollbar,
     Spinbox,
     StringVar,
@@ -50,7 +51,8 @@ class HDRMergeMaster(Frame):
         self.batch_folders = []
         self.folder_profiles = {}  # Maps folder path to profile name
         self.folder_stats = {}  # Maps folder path to analysis dict
-        self.folder_align = {}  # Maps folder path to align setting (bool)
+        self.folder_align = {}  # Maps folder path to Hugin align setting (bool)
+        self.folder_mtb_align = {}  # Maps folder path to MTB align setting (bool), mutually exclusive with folder_align
         self._selected_folder = None  # Track currently selected folder
         self._processing_thread = None  # Track processing thread
         self._last_clipboard = None  # Track last processed clipboard content
@@ -100,7 +102,7 @@ class HDRMergeMaster(Frame):
         self.batch_table.column("profile", anchor=tk.W, width=80, minwidth=60)
         self.batch_table.column("extension", anchor=tk.W, width=50, minwidth=40)
         self.batch_table.column("raw", anchor=tk.CENTER, width=40, minwidth=35)
-        self.batch_table.column("align", anchor=tk.CENTER, width=45, minwidth=40)
+        self.batch_table.column("align", anchor=tk.CENTER, width=55, minwidth=45)
         self.batch_table.column("brackets", anchor=tk.W, width=55, minwidth=40)
         self.batch_table.column("sets", anchor=tk.W, width=40, minwidth=30)
 
@@ -110,7 +112,7 @@ class HDRMergeMaster(Frame):
         self.batch_table.heading("profile", text="Profile", anchor=tk.W)
         self.batch_table.heading("extension", text="Ext", anchor=tk.W)
         self.batch_table.heading("raw", text="RAW", anchor=tk.CENTER)
-        self.batch_table.heading("align", text="Align", anchor=tk.CENTER)
+        self.batch_table.heading("align", text="Align", anchor=tk.CENTER)  # Shows "Hugin", "MTB", or "None"
         self.batch_table.heading("brackets", text="Brackets", anchor=tk.W)
         self.batch_table.heading("sets", text="Sets", anchor=tk.W)
 
@@ -191,26 +193,54 @@ class HDRMergeMaster(Frame):
         # Spacer to push button to right
         Frame(r_profile).pack(side=LEFT, fill=X, expand=True)
 
-        # Align checkbox
-        self.do_align = BooleanVar()
-        self.do_align.set(self.saved_settings.get("do_align", False))
-        self.align_check2 = Checkbutton(
-            profile_frame,
-            variable=self.do_align,
-            onvalue=True,
-            offvalue=False,
-            text="Align",
-            command=self.toggle_folder_align,
-        )
-        self.align_check2.pack(side=LEFT, padx=(padding, 0))
-        self.buttons_to_disable.append(self.align_check2)
+        # Alignment mode: mutually exclusive choice between no alignment,
+        # Hugin (align_image_stack, external pre-align) and MTB (inside Blender).
+        align_label_frame = Frame(profile_frame)
+        align_label_frame.pack(side=LEFT, padx=(padding, 0))
 
-        # Disable Align checkbox if align_image_stack is not available
+        Label(align_label_frame, text="Align:").pack(side=LEFT, padx=(0, 4))
+
+        legacy_default_mode = "hugin" if self.saved_settings.get("do_align", False) else "mtb"
+        self.align_mode = StringVar()
+        self.align_mode.set(self.saved_settings.get("align_mode", legacy_default_mode))
+
+        self.align_none_radio = Radiobutton(
+            align_label_frame,
+            variable=self.align_mode,
+            value="none",
+            text="None",
+            command=self.on_align_mode_change,
+        )
+        self.align_none_radio.pack(side=LEFT)
+        self.buttons_to_disable.append(self.align_none_radio)
+
+        self.align_hugin_radio = Radiobutton(
+            align_label_frame,
+            variable=self.align_mode,
+            value="hugin",
+            text="Hugin",
+            command=self.on_align_mode_change,
+        )
+        self.align_hugin_radio.pack(side=LEFT)
+        self.buttons_to_disable.append(self.align_hugin_radio)
+
+        self.align_mtb_radio = Radiobutton(
+            align_label_frame,
+            variable=self.align_mode,
+            value="mtb",
+            text="MTB (Blender)",
+            command=self.on_align_mode_change,
+        )
+        self.align_mtb_radio.pack(side=LEFT)
+        self.buttons_to_disable.append(self.align_mtb_radio)
+
+        # Disable Hugin option if align_image_stack is not available
         if not CONFIG.get("_optional_exes_available", {}).get(
             "align_image_stack_exe", False
         ):
-            self.align_check2.config(state="disabled")
-            self.do_align.set(False)
+            self.align_hugin_radio.config(state="disabled")
+            if self.align_mode.get() == "hugin":
+                self.align_mode.set("mtb")
 
         btn_manage_profiles = Button(
             r_profile, text="Manage Profiles...", command=self.open_profile_manager
@@ -282,7 +312,8 @@ class HDRMergeMaster(Frame):
             is_raw = stats.get("is_raw", False)
             raw_text = "Yes" if is_raw else "No"
             align = self.folder_align.get(folder, False)
-            align_text = "Yes" if align else "No"
+            mtb_align = self.folder_mtb_align.get(folder, not align)
+            align_text = "Hugin" if align else ("MTB" if mtb_align else "None")
             self.batch_table.insert(
                 "",
                 END,
@@ -351,9 +382,12 @@ class HDRMergeMaster(Frame):
             # Store the folder stats (full analysis dict)
             self.folder_stats[folder_path] = analysis
 
-            # Initialize align setting for new folder
+            # Initialize alignment settings for new folder
+            mode = self.align_mode.get()
             if folder_path not in self.folder_align:
-                self.folder_align[folder_path] = self.do_align.get()
+                self.folder_align[folder_path] = (mode == "hugin")
+            if folder_path not in self.folder_mtb_align:
+                self.folder_mtb_align[folder_path] = (mode == "mtb")
 
             added_any = True
 
@@ -398,6 +432,8 @@ class HDRMergeMaster(Frame):
                 del self.folder_profiles[folder]
             if folder in self.folder_align:
                 del self.folder_align[folder]
+            if folder in self.folder_mtb_align:
+                del self.folder_mtb_align[folder]
 
         self.update_batch_display()
 
@@ -411,6 +447,7 @@ class HDRMergeMaster(Frame):
             self.batch_folders.clear()
             self.folder_profiles.clear()
             self.folder_align.clear()
+            self.folder_mtb_align.clear()
             self.update_batch_display()
 
     def export_batch(self):
@@ -427,10 +464,12 @@ class HDRMergeMaster(Frame):
 
         for folder in self.batch_folders:
             stats = self.folder_stats.get(folder, {})
+            align = self.folder_align.get(folder, False)
             folder_data = {
                 "path": folder,
                 "profile": self.folder_profiles.get(folder, ""),
-                "align": self.folder_align.get(folder, False),
+                "align": align,
+                "mtb_align": self.folder_mtb_align.get(folder, not align),
                 "extension": stats.get("extension", ""),
                 "is_raw": stats.get("is_raw", False),
                 "brackets": stats.get("brackets", 0),
@@ -487,6 +526,7 @@ class HDRMergeMaster(Frame):
                     self.batch_folders.clear()
                     self.folder_profiles.clear()
                     self.folder_align.clear()
+                    self.folder_mtb_align.clear()
                     self.folder_stats.clear()
 
             # Import folders
@@ -502,7 +542,9 @@ class HDRMergeMaster(Frame):
 
                 self.batch_folders.append(folder_path)
                 self.folder_profiles[folder_path] = folder_data.get("profile", "")
-                self.folder_align[folder_path] = folder_data.get("align", False)
+                align = folder_data.get("align", False)
+                self.folder_align[folder_path] = align
+                self.folder_mtb_align[folder_path] = folder_data.get("mtb_align", not align)
 
                 # Restore stats
                 self.folder_stats[folder_path] = {
@@ -536,9 +578,15 @@ class HDRMergeMaster(Frame):
         folder = self.batch_table.item(item)["values"][0]
         self._selected_folder = folder
 
-        # Update align checkbox to match folder's setting
+        # Update alignment mode radio buttons to match folder's setting
         align_setting = self.folder_align.get(folder, False)
-        self.do_align.set(align_setting)
+        mtb_setting = self.folder_mtb_align.get(folder, not align_setting)
+        if align_setting:
+            self.align_mode.set("hugin")
+        elif mtb_setting:
+            self.align_mode.set("mtb")
+        else:
+            self.align_mode.set("none")
 
         # Check if folder contains RAW files
         stats = self.folder_stats.get(folder, {})
@@ -551,15 +599,17 @@ class HDRMergeMaster(Frame):
             self.profile_dropdown.config(state="readonly")
             self.update_profile_dropdown(folder)
 
-    def toggle_folder_align(self):
-        """Toggle align setting for the currently selected folder."""
+    def on_align_mode_change(self):
+        """Apply the mutually-exclusive alignment mode (none/hugin/mtb) to the selected folder."""
+        mode = self.align_mode.get()
+
         if not hasattr(self, "_selected_folder") or not self._selected_folder:
             # No folder selected, just update the saved setting for future folders
-            self.saved_settings["do_align"] = self.do_align.get()
+            self.saved_settings["align_mode"] = mode
             return
 
-        # Toggle the align setting for the selected folder
-        self.folder_align[self._selected_folder] = self.do_align.get()
+        self.folder_align[self._selected_folder] = (mode == "hugin")
+        self.folder_mtb_align[self._selected_folder] = (mode == "mtb")
         self.update_batch_display()
 
     def save_threads(self, event=None):
@@ -744,6 +794,7 @@ class HDRMergeMaster(Frame):
             folder_data=folder_data,
             folder_profiles=self.folder_profiles,
             folder_align=self.folder_align,
+            folder_mtb_align=self.folder_mtb_align,
             threads=threads,
             do_recursive=do_recursive,
             progress_callback=self._on_progress_update,

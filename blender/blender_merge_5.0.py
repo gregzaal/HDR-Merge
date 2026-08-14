@@ -1,28 +1,9 @@
 import sys
-import subprocess
-import site
-
-# Try importing cv2; if missing, install it directly inside Blender
-try:
-    import cv2
-except ImportError:
-    print("Installing opencv-python into Blender environment...")
-    subprocess.call([sys.executable, "-m", "pip", "install", "opencv-python", "--user"])
-    
-    # Reload site-packages path so Python detects the newly installed module
-    user_site = site.getusersitepackages()
-    if user_site not in sys.path:
-        sys.path.append(user_site)
-        
-    import cv2
-
-import bpy
 import os
 import pathlib
-import sys
 
 # Example call:
-# blender.exe --background HDR_Merge.blend --factory-startup --python blender_merge.py -- 3456x5184 "C:/foo/bar/Merged/exr/merged_000.exr" ND8_ND400 0 imgpath1___12 imgpath2___9 imgpath3___6 imgpath4___3 imgpath5___0
+# blender.exe --background HDR_Merge.blend --factory-startup --python blender_merge.py -- 3456x5184 "C:/foo/bar/Merged/exr/merged_000.exr" ND8_ND400 0 1 imgpath1___12 imgpath2___9 imgpath3___6 imgpath4___3 imgpath5___0
 
 argv = sys.argv
 argv = argv[argv.index("--") + 1 :]  # get all args after "--"
@@ -30,34 +11,58 @@ RESOLUTION = [int(d) for d in argv[0].split("x")]
 EXR_OUTFILE = argv[1]
 FILTERS = argv[2]
 BRACKET_ID = int(argv[3])  # Bracket ID for unique filenames
-IMAGES = sorted([i.split("___") for i in argv[4:]], key=lambda x: float(x[1]))
+DO_MTB_ALIGN = argv[4] == "1"  # Whether to calculate MTB pixel-shift alignment
+IMAGES = sorted([i.split("___") for i in argv[5:]], key=lambda x: float(x[1]))
 
 exr_fpath = pathlib.Path(EXR_OUTFILE)
 
 # -----------------------------------------------------------------------------
-# 1. MTB Shift Calculation using OpenCV
+# 1. MTB Shift Calculation using OpenCV (skipped if DO_MTB_ALIGN is False)
 # -----------------------------------------------------------------------------
-print("Calculating MTB pixel shifts...")
-image_paths = [img_path for img_path, _ in IMAGES]
-cv_images = [cv2.imread(p) for p in image_paths]
+if DO_MTB_ALIGN:
+    import subprocess
+    import site
 
-# Pick middle exposure as reference
-ref_idx = len(cv_images) // 2
+    # Try importing cv2; if missing, install it directly inside Blender
+    try:
+        import cv2
+    except ImportError:
+        print("Installing opencv-python into Blender environment...")
+        subprocess.call([sys.executable, "-m", "pip", "install", "opencv-python", "--user"])
 
-# Convert reference image to Grayscale (single channel required for calculateShift)
-ref_gray = cv2.cvtColor(cv_images[ref_idx], cv2.COLOR_BGR2GRAY)
+        # Reload site-packages path so Python detects the newly installed module
+        user_site = site.getusersitepackages()
+        if user_site not in sys.path:
+            sys.path.append(user_site)
 
-align_mtb = cv2.createAlignMTB(max_bits=4, exclude_range=4, cut=True)
-mtb_shifts = []
+        import cv2
 
-for idx, cv_img in enumerate(cv_images):
-    # Convert current frame to Grayscale
-    img_gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
-    
-    # Calculate shift on grayscale images
-    shift = align_mtb.calculateShift(ref_gray, img_gray)
-    mtb_shifts.append(shift)
-    print(f"  Image {idx}: {os.path.basename(image_paths[idx])} -> Shift (X, Y): {shift}")
+    print("Calculating MTB pixel shifts...")
+    image_paths = [img_path for img_path, _ in IMAGES]
+    cv_images = [cv2.imread(p) for p in image_paths]
+
+    # Pick middle exposure as reference
+    ref_idx = len(cv_images) // 2
+
+    # Convert reference image to Grayscale (single channel required for calculateShift)
+    ref_gray = cv2.cvtColor(cv_images[ref_idx], cv2.COLOR_BGR2GRAY)
+
+    align_mtb = cv2.createAlignMTB(max_bits=4, exclude_range=4, cut=True)
+    mtb_shifts = []
+
+    for idx, cv_img in enumerate(cv_images):
+        # Convert current frame to Grayscale
+        img_gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+
+        # Calculate shift on grayscale images
+        shift = align_mtb.calculateShift(ref_gray, img_gray)
+        mtb_shifts.append(shift)
+        print(f"  Image {idx}: {os.path.basename(image_paths[idx])} -> Shift (X, Y): {shift}")
+else:
+    print("Skipping MTB alignment - inserting identity Translate nodes for manual adjustment.")
+    mtb_shifts = [(0.0, 0.0) for _ in IMAGES]
+
+import bpy
 
 # -----------------------------------------------------------------------------
 # 2. Blender Compositor Node Tree Setup

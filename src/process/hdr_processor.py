@@ -153,6 +153,7 @@ class HDRProcessor:
         luminance_cli_exe,
         align_image_stack_exe,
         do_align: bool,
+        do_mtb_align: bool,
     ):
         """Merge a bracket set into an HDR image."""
         exr_folder = out_folder / "exr"
@@ -226,6 +227,9 @@ class HDRProcessor:
                 filter_used,
                 str(i),
             ]
+            # MTB alignment is only implemented in the Blender 5.0+ merge script
+            if merge_py.name == "blender_merge_5.0.py":
+                cmd.append("1" if do_mtb_align else "0")
             cmd += img_list
             run_subprocess_with_prefix(cmd, i, "blender", out_folder)
 
@@ -271,6 +275,7 @@ class HDRProcessor:
         merge_py: pathlib.Path,
         original_extension: str,
         do_align: bool,
+        do_mtb_align: bool,
         do_raw: bool,
         rawtherapee_cli_exe: str,
         pp3_file: str,
@@ -350,6 +355,7 @@ class HDRProcessor:
                 luminance_cli_exe,
                 align_image_stack_exe,
                 do_align,
+                do_mtb_align,
             )
             threads.append((i, t))
 

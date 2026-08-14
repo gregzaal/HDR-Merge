@@ -44,6 +44,7 @@ def add_folder_to_batch(
     batch_list: list,
     profile: str = None,
     align: bool = False,
+    mtb_align: bool = True,
     recursive: bool = False,
 ) -> int:
     """
@@ -53,7 +54,8 @@ def add_folder_to_batch(
         folder_path: Path to the folder to add
         batch_list: Existing batch list to append to
         profile: Optional PP3 profile name
-        align: Whether to enable alignment
+        align: Whether to enable Hugin-based alignment (mutually exclusive with mtb_align)
+        mtb_align: Whether to enable MTB alignment inside Blender (mutually exclusive with align)
         recursive: Whether to add subfolders recursively
 
     Returns:
@@ -93,6 +95,7 @@ def add_folder_to_batch(
             "path": folder_path,
             "profile": profile or "",
             "align": align,
+            "mtb_align": mtb_align,
             "extension": analysis.get("extension", ".tif"),
             "is_raw": analysis.get("is_raw", False),
             "brackets": analysis.get("brackets", 0),
@@ -136,10 +139,11 @@ def run_headless_processing(
         print("Error: No folders to process!")
         return {"success": False, "error": "No folders to process"}
 
-    # Build folder_data, folder_profiles, and folder_align from batch list
+    # Build folder_data, folder_profiles, folder_align and folder_mtb_align from batch list
     folder_data = []
     folder_profiles = {}
     folder_align = {}
+    folder_mtb_align = {}
 
     for folder_info in batch_list:
         folder_path = folder_info.get("path")
@@ -162,7 +166,9 @@ def run_headless_processing(
             if profile:
                 folder_profiles[folder_path] = profile
 
-        folder_align[folder_path] = folder_info.get("align", False)
+        align = folder_info.get("align", False)
+        folder_align[folder_path] = align
+        folder_mtb_align[folder_path] = folder_info.get("mtb_align", not align)
 
     if not folder_data:
         print("Error: No valid folders in batch list!")
@@ -172,7 +178,8 @@ def run_headless_processing(
     print(f"Folders to process: {len(folder_data)}")
     print(f"Threads: {threads}")
     print(f"Cleanup: {'Yes' if cleanup else 'No'}")
-    print(f"Align folders: {sum(1 for v in folder_align.values() if v)}")
+    print(f"Hugin align folders: {sum(1 for v in folder_align.values() if v)}")
+    print(f"MTB align folders: {sum(1 for v in folder_mtb_align.values() if v)}")
     print()
 
     # Print folder details
@@ -180,7 +187,12 @@ def run_headless_processing(
         folder_name = pathlib.Path(fd["path"]).name
         raw_status = "RAW" if fd["is_raw"] else "Processed"
         profile_info = f" (Profile: {folder_profiles.get(fd['path'], 'N/A')})" if fd["is_raw"] else ""
-        align_info = " [Align]" if folder_align.get(fd["path"], False) else ""
+        if folder_align.get(fd["path"], False):
+            align_info = " [Align: Hugin]"
+        elif folder_mtb_align.get(fd["path"], False):
+            align_info = " [Align: MTB]"
+        else:
+            align_info = " [Align: None]"
         print(f"  - {folder_name}: {fd['sets']} sets, {fd['brackets']} brackets ({raw_status}){profile_info}{align_info}")
 
     print(f"\nStarting processing at {datetime.now().strftime('%H:%M:%S')}...\n")
@@ -213,6 +225,7 @@ def run_headless_processing(
         folder_data=folder_data,
         folder_profiles=folder_profiles,
         folder_align=folder_align,
+        folder_mtb_align=folder_mtb_align,
         threads=threads,
         do_recursive=recursive,
         progress_callback=progress_callback,
@@ -287,11 +300,23 @@ Examples:
         help="PP3 profile name to use (for RAW files)",
     )
 
-    # Align option
+    # Align option (legacy alias for --align-mode hugin)
     parser.add_argument(
         "-a", "--align",
         action="store_true",
-        help="Enable image alignment",
+        help="Enable Hugin-based alignment (align_image_stack) before merging. "
+             "Shorthand for --align-mode hugin.",
+    )
+
+    # Alignment mode: none / hugin (external align_image_stack) / mtb (inside Blender)
+    parser.add_argument(
+        "--align-mode",
+        choices=["none", "hugin", "mtb"],
+        default=None,
+        help="Alignment mode (mutually exclusive): 'none' skips alignment (Translate nodes are "
+             "still added in Blender for manual adjustment), 'hugin' uses align_image_stack "
+             "before merging, 'mtb' aligns inside Blender using OpenCV MTB (default). "
+             "Overrides --align if both are given.",
     )
 
     # Threads option
@@ -342,13 +367,19 @@ Examples:
             print(f"Error loading batch file: {e}")
             sys.exit(1)
 
+    # Resolve mutually-exclusive alignment mode (--align-mode takes priority over legacy --align)
+    align_mode = args.align_mode
+    if align_mode is None:
+        align_mode = "hugin" if args.align else "mtb"
+
     # Add single folder if specified
     if args.folder:
         added = add_folder_to_batch(
             args.folder,
             batch_list,
             profile=args.profile,
-            align=args.align,
+            align=(align_mode == "hugin"),
+            mtb_align=(align_mode == "mtb"),
             recursive=args.recursive,
         )
         print(f"Added {added} folder(s): {args.folder}")
