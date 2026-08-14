@@ -67,6 +67,16 @@ import bpy
 # -----------------------------------------------------------------------------
 # 2. Blender Compositor Node Tree Setup
 # -----------------------------------------------------------------------------
+# Node layout constants - purely cosmetic, arranges the generated nodes into a
+# readable grid instead of stacking them all on top of each other at (0, 0).
+# Rows flow top-to-bottom by node type (Image -> Translate -> Merge), columns
+# flow left-to-right, one column per bracketed image.
+NODE_SPACING_X = 300
+NODE_SPACING_Y = 300
+IMAGE_ROW_Y = 0
+TRANSLATE_ROW_Y = -NODE_SPACING_Y
+MERGE_ROW_Y = -NODE_SPACING_Y * 2
+
 nodes = []
 previous_node = None
 previous_group = None
@@ -75,7 +85,9 @@ nt = bpy.context.scene.compositing_node_group
 
 for i, (img_path, ev) in enumerate(IMAGES):
     ev = float(ev)
+    col_x = i * NODE_SPACING_X
     n = nt.nodes.new("CompositorNodeImage")
+    n.location = (col_x, IMAGE_ROW_Y)
     print("Loading:", i, os.path.basename(img_path))
     img = bpy.data.images.load(img_path)
     n.image = img
@@ -83,7 +95,8 @@ for i, (img_path, ev) in enumerate(IMAGES):
     # --- Insert Translate Node for MTB Shift ---
     shift_x, shift_y = mtb_shifts[i]
     t_node = nt.nodes.new("CompositorNodeTranslate")
-    
+    t_node.location = (col_x, TRANSLATE_ROW_Y)
+
     # Handle API differences between Blender 5.0+ and earlier versions
     if hasattr(t_node, "mode"):
         t_node.mode = 'ABSOLUTE'
@@ -92,7 +105,7 @@ for i, (img_path, ev) in enumerate(IMAGES):
 
     t_node.inputs["X"].default_value = float(shift_x)
     t_node.inputs["Y"].default_value = float(shift_y)
-    
+
     nt.links.new(n.outputs[0], t_node.inputs[0])
 
     # Record the translate node as the output source for subsequent nodes
@@ -103,6 +116,8 @@ for i, (img_path, ev) in enumerate(IMAGES):
     if i != 0:
         print("Creating group", i)
         g = nt.nodes.new("CompositorNodeGroup")
+        # Same column as the translate node it's folding in, one row down.
+        g.location = (col_x, MERGE_ROW_Y)
         groups.append(g)
         g.node_tree = bpy.data.node_groups["Merge HDR"]
         nt.links.new(previous_node.outputs[0], g.inputs[0])
@@ -113,7 +128,7 @@ for i, (img_path, ev) in enumerate(IMAGES):
             nt.links.new(previous_group.outputs[0], g.inputs[2])
         g.inputs[3].default_value = ev
         previous_group = g
-        
+
     previous_node = active_output_node
 
 bpy.ops.wm.save_as_mainfile(
@@ -122,6 +137,8 @@ bpy.ops.wm.save_as_mainfile(
 )
 
 nt.links.new(groups[-1].outputs[0], nt.nodes["OUT"].inputs[0])
+# Place the output node one column past the final merge group, same row.
+nt.nodes["OUT"].location = (groups[-1].location.x + NODE_SPACING_X, MERGE_ROW_Y)
 
 
 def filter_fix(filter_type, node_tree, img_nodes):
@@ -129,6 +146,8 @@ def filter_fix(filter_type, node_tree, img_nodes):
         links = n.outputs[0].links
         g = node_tree.nodes.new("CompositorNodeGroup")
         g.node_tree = bpy.data.node_groups[filter_type]
+        # Sit the filter halfway between the row it taps and the row it feeds.
+        g.location = (n.location.x, n.location.y - NODE_SPACING_Y * 0.5)
         node_tree.links.new(n.outputs[0], g.inputs[0])
         for l in links:
             node_tree.links.new(g.outputs[0], l.to_socket)
