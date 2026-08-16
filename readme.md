@@ -67,9 +67,10 @@ Then:
 2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but if you want to use RAW files from your camera, **you need to install RawTherapee and enable the RAW option in the UI**. I typically do some minor tweaks to the RAW files in RawTherapee first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script.
 3. Choose the number of threads (the number of simultaneous bracketed exposures to merge). Use as many threads as you can without running out of RAM or freezing your computer. In my experience 6 threads usually works fine for 32 GB RAM, but this depends on your camera resolution.
 4. Choose an alignment mode for the selected folder: **None** (no alignment; Translate nodes are still added in Blender so you can adjust alignment manually afterwards), **Hugin** (external pre-align via `align_image_stack`), or **MTB** (alignment computed inside Blender via OpenCV, default). These are mutually exclusive per folder.
-5. The "Recursive" option will iterate through all subfolders of your selected folder.
-6. Click *Create HDRs*, and monitor the console window for progress and errors.
-7. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files, while the `jpg` folder contains tonemapped versions of those files.
+5. Choose the output format for the merged images: **EXR** (32-bit OpenEXR, default) or **HDR** (Radiance). This applies to the whole batch and requires Blender 5.0+ (blender_merge_5.0.py).
+6. The "Recursive" option will iterate through all subfolders of your selected folder.
+7. Click *Create HDRs*, and monitor the console window for progress and errors.
+8. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files (or Radiance `.hdr` files if that output format was chosen), while the `jpg` folder contains tonemapped versions of those files.
 
 Note: This tool does not do any ghost removal, so it's important that you use a steady tripod when shooting.
 
@@ -101,6 +102,8 @@ The script will discover that images `IMG001.tif` and `IMG004.tif` have the same
     * `IMG006.tif`
 
 Exposures can be in any order (`0 + ++`, `0 - --`, `0 + -`, `- 0 +`, etc.).
+
+If the automatic detection gets the number of images per bracket wrong, you can override it manually: double-click the **Brackets** cell for that folder in the batch table and type the correct count. The **Sets** count updates automatically, and only complete sets (i.e. a multiple of the specified bracket count) will be merged - any leftover images at the end of the folder are skipped.
 
 ## Command Line Interface (CLI)
 
@@ -167,13 +170,17 @@ You can export and import batch lists from the GUI using the Export/Import butto
       "extension": ".tif",
       "is_raw": false,
       "brackets": 3,
-      "sets": 10
+      "sets": 10,
+      "file_count": 30,
+      "brackets_override": null
     }
   ]
 }
 ```
 
 Note: `align` (Hugin, external pre-align) and `mtb_align` (MTB, inside Blender) are mutually exclusive per folder. If both are omitted, `mtb_align` defaults to `true`.
+
+Note: `brackets_override`, when set to a number, forces that many images per bracket instead of auto-detecting from EXIF data (see *Example Input Folder Structure* above).
 
 Note: In CLI mode, processing begins automatically once all folders are loaded.
 
