@@ -229,9 +229,11 @@ class HDRProcessor:
                 filter_used,
                 str(i),
             ]
-            # MTB alignment is only implemented in the Blender 5.0+ merge script
+            # MTB alignment and in-compositor tonemapping are only implemented
+            # in the Blender 5.0+ merge script
             if merge_py.name == "blender_merge_5.0.py":
                 cmd.append("1" if do_mtb_align else "0")
+                cmd.append(jpg_path.as_posix())
             cmd += img_list
             run_subprocess_with_prefix(cmd, i, "blender", out_folder)
 

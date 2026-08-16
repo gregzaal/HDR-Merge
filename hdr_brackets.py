@@ -2,6 +2,7 @@
 # nuitka-project: --include-data-dir=blender/=blender/
 # nuitka-project: --include-data-files=blender/*.py=blender/
 # nuitka-project: --include-data-files=icons/*=icons/
+# nuitka-project: --include-data-dir=vendor/=vendor/
 # nuitka-project: --enable-plugin=tk-inter
 # nuitka-project: --output-dir=build
 # nuitka-project: --windows-icon-from-ico=icons/icon.ico

@@ -98,17 +98,23 @@ class HDRExecutor:
 
     def _get_profile_for_folder(self, folder_path: str, profiles: list) -> dict:
         """Get the PP3 profile for a folder."""
-        if not profiles:
-            return None
-
-        folder_name = pathlib.Path(folder_path).name.lower()
-
-        # Check if folder has a manually assigned profile
+        # A manually assigned profile always wins, even over a local .pp3 file.
         if folder_path in self.folder_profiles:
             profile_name = self.folder_profiles[folder_path]
             for profile in profiles:
                 if profile.get("name") == profile_name:
                     return profile
+
+        # A .pp3 file already sitting next to the raw files takes priority
+        # over auto-matching/default profiles.
+        local_pp3 = next(pathlib.Path(folder_path).glob("*.pp3"), None)
+        if local_pp3:
+            return {"name": local_pp3.stem, "path": str(local_pp3)}
+
+        if not profiles:
+            return None
+
+        folder_name = pathlib.Path(folder_path).name.lower()
 
         # Try to auto-match by folder key
         for profile in profiles:
