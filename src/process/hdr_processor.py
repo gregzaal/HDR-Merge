@@ -153,6 +153,8 @@ class HDRProcessor:
         luminance_cli_exe,
         align_image_stack_exe,
         do_align: bool,
+        do_mtb_align: bool,
+        output_format: str = "exr",
     ):
         """Merge a bracket set into an HDR image."""
         exr_folder = out_folder / "exr"
@@ -162,7 +164,8 @@ class HDRProcessor:
         exr_folder.mkdir(parents=True, exist_ok=True)
         jpg_folder.mkdir(parents=True, exist_ok=True)
 
-        exr_path = exr_folder / ("merged_%03d.exr" % i)
+        out_suffix = ".hdr" if output_format == "hdr" else ".exr"
+        exr_path = exr_folder / ("merged_%03d%s" % (i, out_suffix))
         jpg_path = jpg_folder / exr_path.with_suffix(".jpg").name
 
         if exr_path.exists():
@@ -226,6 +229,9 @@ class HDRProcessor:
                 filter_used,
                 str(i),
             ]
+            # MTB alignment is only implemented in the Blender 5.0+ merge script
+            if merge_py.name == "blender_merge_5.0.py":
+                cmd.append("1" if do_mtb_align else "0")
             cmd += img_list
             run_subprocess_with_prefix(cmd, i, "blender", out_folder)
 
@@ -271,13 +277,20 @@ class HDRProcessor:
         merge_py: pathlib.Path,
         original_extension: str,
         do_align: bool,
+        do_mtb_align: bool,
         do_raw: bool,
         rawtherapee_cli_exe: str,
         pp3_file: str,
         executor: ThreadPoolExecutor,
+        output_format: str = "exr",
+        brackets_override: int = None,
     ) -> tuple:
         """
         Process a single folder and return (num_brackets, num_sets, threads, error).
+
+        Args:
+            brackets_override: If set, use this as the number of images per bracket
+                instead of auto-detecting it from EXIF data.
 
         Returns:
             tuple: (brackets, sets, threads, error_message)
@@ -305,17 +318,28 @@ class HDRProcessor:
         if not files:
             return (0, 0, [], "No matching files found")
 
-        # Analyze EXIF to determine number of brackets
-        exifs = []
-        for f in files:
-            e = get_exif(f)
-            if e in exifs:
-                break
-            exifs.append(e)
-        brackets = len(exifs)
+        # Analyze EXIF to determine number of brackets, unless manually overridden
+        if brackets_override:
+            exifs = [get_exif(f) for f in files[:brackets_override]]
+            brackets = brackets_override
+        else:
+            exifs = []
+            for f in files:
+                e = get_exif(f)
+                if e in exifs:
+                    break
+                exifs.append(e)
+            brackets = len(exifs)
         print("\nFolder: %s" % folder)
         print("Brackets:", brackets)
         sets = chunks(files, brackets)
+        incomplete_sets = [s for s in sets if len(s) != brackets]
+        if incomplete_sets:
+            sets = [s for s in sets if len(s) == brackets]
+            print(
+                "Folder %s: Skipping %d incomplete set(s) (expected %d images per bracket)"
+                % (folder.name, len(incomplete_sets), brackets)
+            )
         print("Sets:", len(sets), "\n")
         if VERBOSE:
             print("Exifs:\n", str(exifs).replace("}, {", "},\n{"))
@@ -350,6 +374,8 @@ class HDRProcessor:
                 luminance_cli_exe,
                 align_image_stack_exe,
                 do_align,
+                do_mtb_align,
+                output_format,
             )
             threads.append((i, t))
 
