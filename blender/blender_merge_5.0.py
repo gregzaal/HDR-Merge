@@ -166,6 +166,14 @@ rset.filepath = str(exr_fpath)
 rset.resolution_x = RESOLUTION[0]
 rset.resolution_y = RESOLUTION[1]
 
+# Output format is driven by the output file's extension - .hdr renders as
+# Radiance HDR (no alpha channel support), anything else stays OpenEXR.
+if exr_fpath.suffix.lower() == ".hdr":
+    rset.image_settings.file_format = "HDR"
+    rset.image_settings.color_mode = "RGB"
+else:
+    rset.image_settings.file_format = "OPEN_EXR"
+
 bpy.ops.render.render(write_still=True)  # Render!
 
 bpy.ops.wm.save_as_mainfile(

@@ -44,6 +44,7 @@ class HDRExecutor:
         completion_callback=None,
         log_callback=None,
         folder_mtb_align: dict = None,
+        output_format: str = "exr",
     ):
         """
         Initialize the HDR executor.
@@ -59,6 +60,7 @@ class HDRExecutor:
             log_callback: Callback for log messages
             folder_mtb_align: Dict mapping folder paths to MTB align settings (bool).
                 Mutually exclusive with folder_align per folder.
+            output_format: Merged image output format, "exr" or "hdr".
         """
         self.folder_data = folder_data
         self.folder_profiles = folder_profiles
@@ -69,6 +71,7 @@ class HDRExecutor:
         self.progress_callback = progress_callback
         self.completion_callback = completion_callback
         self.log_callback = log_callback
+        self.output_format = output_format
 
         self.processor = HDRProcessor(
             progress_callback=self._on_processor_progress,
@@ -209,6 +212,7 @@ class HDRExecutor:
                     rawtherapee_cli_exe,
                     folder_pp3_file,
                     executor,
+                    self.output_format,
                 )
                 bracket_list.append(brackets)
                 total_sets += sets
@@ -264,6 +268,7 @@ def execute_hdr_processing(
     completion_callback=None,
     log_callback=None,
     folder_mtb_align: dict = None,
+    output_format: str = "exr",
 ) -> threading.Thread:
     """
     Start HDR processing in a background thread.
@@ -284,6 +289,7 @@ def execute_hdr_processing(
         log_callback: Callback for log messages
         folder_mtb_align: Dict mapping folder paths to MTB align settings (bool),
             mutually exclusive with folder_align per folder
+        output_format: Merged image output format, "exr" or "hdr"
 
     Returns:
         threading.Thread: The background thread running the processing
@@ -298,6 +304,7 @@ def execute_hdr_processing(
         completion_callback=completion_callback,
         log_callback=log_callback,
         folder_mtb_align=folder_mtb_align,
+        output_format=output_format,
     )
 
     thread = threading.Thread(target=executor.execute)

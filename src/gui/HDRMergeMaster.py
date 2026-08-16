@@ -274,6 +274,29 @@ class HDRMergeMaster(Frame):
         self.cleanup_check.pack(side=LEFT, padx=(padding, 0))
         self.buttons_to_disable.append(self.cleanup_check)
 
+        # Output format: EXR (OpenEXR) or HDR (Radiance) for the merged image
+        Label(r2, text="Output:").pack(side=LEFT, padx=(padding, 0))
+        self.output_format = StringVar()
+        self.output_format.set(self.saved_settings.get("output_format", "exr"))
+
+        self.output_exr_radio = Radiobutton(
+            r2,
+            variable=self.output_format,
+            value="exr",
+            text="EXR",
+        )
+        self.output_exr_radio.pack(side=LEFT)
+        self.buttons_to_disable.append(self.output_exr_radio)
+
+        self.output_hdr_radio = Radiobutton(
+            r2,
+            variable=self.output_format,
+            value="hdr",
+            text="HDR",
+        )
+        self.output_hdr_radio.pack(side=LEFT)
+        self.buttons_to_disable.append(self.output_hdr_radio)
+
         # Spacer to push button to right
         Frame(r2).pack(side=LEFT, fill=X, expand=True)
 
@@ -765,9 +788,11 @@ class HDRMergeMaster(Frame):
         threads = int(self.num_threads.get())
         do_recursive = self.do_recursive_option.get()
         do_cleanup = self.do_cleanup.get()
+        output_format = self.output_format.get()
 
-        # Save cleanup setting to config
+        # Save cleanup and output format settings to config
         CONFIG["gui_settings"]["do_cleanup"] = do_cleanup
+        CONFIG["gui_settings"]["output_format"] = output_format
 
         # Build folder_data list from pre-analyzed stats
         folder_data = []
@@ -800,6 +825,7 @@ class HDRMergeMaster(Frame):
             progress_callback=self._on_progress_update,
             completion_callback=self._on_processing_complete,
             log_callback=None,  # Use default print logging
+            output_format=output_format,
         )
         self._processing_thread.start()
 

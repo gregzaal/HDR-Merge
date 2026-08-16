@@ -154,6 +154,7 @@ class HDRProcessor:
         align_image_stack_exe,
         do_align: bool,
         do_mtb_align: bool,
+        output_format: str = "exr",
     ):
         """Merge a bracket set into an HDR image."""
         exr_folder = out_folder / "exr"
@@ -163,7 +164,8 @@ class HDRProcessor:
         exr_folder.mkdir(parents=True, exist_ok=True)
         jpg_folder.mkdir(parents=True, exist_ok=True)
 
-        exr_path = exr_folder / ("merged_%03d.exr" % i)
+        out_suffix = ".hdr" if output_format == "hdr" else ".exr"
+        exr_path = exr_folder / ("merged_%03d%s" % (i, out_suffix))
         jpg_path = jpg_folder / exr_path.with_suffix(".jpg").name
 
         if exr_path.exists():
@@ -280,6 +282,7 @@ class HDRProcessor:
         rawtherapee_cli_exe: str,
         pp3_file: str,
         executor: ThreadPoolExecutor,
+        output_format: str = "exr",
     ) -> tuple:
         """
         Process a single folder and return (num_brackets, num_sets, threads, error).
@@ -356,6 +359,7 @@ class HDRProcessor:
                 align_image_stack_exe,
                 do_align,
                 do_mtb_align,
+                output_format,
             )
             threads.append((i, t))
 
