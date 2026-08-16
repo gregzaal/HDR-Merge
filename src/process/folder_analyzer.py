@@ -43,13 +43,13 @@ def analyze_folder(folder_path: pathlib.Path) -> dict:
         # files.extend(folder.glob(f"*{ext.upper()}"))  # Also check uppercase extensions
     
     if not files:
-        return {"brackets": 0, "sets": 0, "is_raw": False, "extension": ""}
-    
+        return {"brackets": 0, "sets": 0, "is_raw": False, "extension": "", "file_count": 0}
+
     # Determine if files are RAW or processed by checking the first file
     first_file = files[0]
     file_ext = first_file.suffix.lower()
     is_raw = file_ext in raw_extensions
-    
+
     # Analyze EXIF to determine number of unique brackets
     exifs = []
     for f in files:
@@ -57,20 +57,21 @@ def analyze_folder(folder_path: pathlib.Path) -> dict:
         if e in exifs:
             break
         exifs.append(e)
-    
+
     brackets = len(exifs)
-    
+
     if brackets == 0:
-        return {"brackets": 0, "sets": 0, "is_raw": is_raw, "extension": file_ext}
-    
+        return {"brackets": 0, "sets": 0, "is_raw": is_raw, "extension": file_ext, "file_count": len(files)}
+
     # Calculate number of complete sets
     sets = len(files) // brackets
-    
+
     return {
         "brackets": brackets,
         "sets": sets,
         "is_raw": is_raw,
         "extension": file_ext,
+        "file_count": len(files),
     }
 
 

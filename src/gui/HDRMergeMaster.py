@@ -53,9 +53,11 @@ class HDRMergeMaster(Frame):
         self.folder_stats = {}  # Maps folder path to analysis dict
         self.folder_align = {}  # Maps folder path to Hugin align setting (bool)
         self.folder_mtb_align = {}  # Maps folder path to MTB align setting (bool), mutually exclusive with folder_align
+        self.folder_brackets_override = {}  # Maps folder path to manually-set images-per-bracket count
         self._selected_folder = None  # Track currently selected folder
         self._processing_thread = None  # Track processing thread
         self._last_clipboard = None  # Track last processed clipboard content
+        self._bracket_edit_entry = None  # Active inline-edit widget for the brackets column
 
         # Load saved GUI settings
         self.saved_settings = CONFIG.get("gui_settings", {})
@@ -103,7 +105,7 @@ class HDRMergeMaster(Frame):
         self.batch_table.column("extension", anchor=tk.W, width=50, minwidth=40)
         self.batch_table.column("raw", anchor=tk.CENTER, width=40, minwidth=35)
         self.batch_table.column("align", anchor=tk.CENTER, width=55, minwidth=45)
-        self.batch_table.column("brackets", anchor=tk.W, width=55, minwidth=40)
+        self.batch_table.column("brackets", anchor=tk.W, width=140, minwidth=60)
         self.batch_table.column("sets", anchor=tk.W, width=40, minwidth=30)
 
         # Configure headings
@@ -113,7 +115,7 @@ class HDRMergeMaster(Frame):
         self.batch_table.heading("extension", text="Ext", anchor=tk.W)
         self.batch_table.heading("raw", text="RAW", anchor=tk.CENTER)
         self.batch_table.heading("align", text="Align", anchor=tk.CENTER)  # Shows "Hugin", "MTB", or "None"
-        self.batch_table.heading("brackets", text="Brackets", anchor=tk.W)
+        self.batch_table.heading("brackets", text="Brackets (dbl-click to edit)", anchor=tk.W)
         self.batch_table.heading("sets", text="Sets", anchor=tk.W)
 
         # Add scrollbar
@@ -125,6 +127,7 @@ class HDRMergeMaster(Frame):
 
         self.batch_table.pack(side=LEFT, fill=BOTH, expand=True)
         self.batch_table.bind("<<TreeviewSelect>>", self.on_batch_select)
+        self.batch_table.bind("<Double-1>", self.on_batch_table_double_click)
 
         # Batch buttons (stacked vertically)
         btn_batch_frame = Frame(r_batch)
@@ -228,7 +231,7 @@ class HDRMergeMaster(Frame):
             align_label_frame,
             variable=self.align_mode,
             value="mtb",
-            text="MTB (Blender)",
+            text="MTB (Blender, required OpenCV)",
             command=self.on_align_mode_change,
         )
         self.align_mtb_radio.pack(side=LEFT)
@@ -330,6 +333,8 @@ class HDRMergeMaster(Frame):
             profile_name = self.folder_profiles.get(folder, "")
             stats = self.folder_stats.get(folder, {})
             brackets = stats.get("brackets", "")
+            if folder in self.folder_brackets_override:
+                brackets = "%s (manual)" % brackets
             sets = stats.get("sets", "")
             extension = stats.get("extension", "")
             is_raw = stats.get("is_raw", False)
@@ -351,6 +356,92 @@ class HDRMergeMaster(Frame):
                     sets,
                 ),
             )
+
+    def on_batch_table_double_click(self, event):
+        """Open an inline editor over the brackets cell when it's double-clicked."""
+        if self._bracket_edit_entry is not None:
+            return
+
+        region = self.batch_table.identify("region", event.x, event.y)
+        if region != "cell":
+            return
+
+        row = self.batch_table.identify_row(event.y)
+        column = self.batch_table.identify_column(event.x)
+        if not row:
+            return
+
+        columns = self.batch_table["columns"]
+        col_index = int(column.replace("#", "")) - 1
+        if col_index < 0 or col_index >= len(columns) or columns[col_index] != "brackets":
+            return
+
+        folder = row  # iid is the folder path
+        bbox = self.batch_table.bbox(row, column)
+        if not bbox:
+            return
+        x, y, width, height = bbox
+
+        stats = self.folder_stats.get(folder, {})
+        current_value = self.folder_brackets_override.get(folder, stats.get("brackets", ""))
+
+        edit_var = StringVar(value=str(current_value))
+        entry = tk.Entry(self.batch_table, textvariable=edit_var, justify=tk.CENTER)
+        entry.place(x=x, y=y, width=width, height=height)
+        entry.focus_set()
+        entry.select_range(0, tk.END)
+        self._bracket_edit_entry = entry
+
+        def commit(event=None):
+            if self._bracket_edit_entry is None:
+                return
+            value = edit_var.get().strip()
+            entry.destroy()
+            self._bracket_edit_entry = None
+
+            if not value:
+                return
+            try:
+                brackets = int(value)
+            except ValueError:
+                messagebox.showerror(
+                    "Invalid Value", "Number of images per bracket must be a whole number."
+                )
+                return
+            if brackets <= 0:
+                messagebox.showerror(
+                    "Invalid Value", "Number of images per bracket must be greater than 0."
+                )
+                return
+
+            self.set_brackets_override(folder, brackets)
+
+        def cancel(event=None):
+            if self._bracket_edit_entry is None:
+                return
+            entry.destroy()
+            self._bracket_edit_entry = None
+
+        entry.bind("<Return>", commit)
+        entry.bind("<FocusOut>", commit)
+        entry.bind("<Escape>", cancel)
+
+    def set_brackets_override(self, folder, brackets):
+        """Manually set the images-per-bracket count for a folder and recompute its set count."""
+        self.folder_brackets_override[folder] = brackets
+
+        stats = self.folder_stats.setdefault(folder, {})
+
+        file_count = stats.get("file_count")
+        if not file_count:
+            # Fall back to an approximation for folders analyzed before file_count
+            # was tracked (e.g. imported from an older exported batch file).
+            file_count = stats.get("sets", 0) * (stats.get("brackets", 0) or 1)
+
+        stats["brackets"] = brackets
+        stats["sets"] = file_count // brackets if brackets else 0
+
+        self.update_batch_display()
 
     def add_to_batch(self):
         """Show file browser and add selected folder(s) to batch list."""
@@ -457,6 +548,8 @@ class HDRMergeMaster(Frame):
                 del self.folder_align[folder]
             if folder in self.folder_mtb_align:
                 del self.folder_mtb_align[folder]
+            if folder in self.folder_brackets_override:
+                del self.folder_brackets_override[folder]
 
         self.update_batch_display()
 
@@ -471,6 +564,7 @@ class HDRMergeMaster(Frame):
             self.folder_profiles.clear()
             self.folder_align.clear()
             self.folder_mtb_align.clear()
+            self.folder_brackets_override.clear()
             self.update_batch_display()
 
     def export_batch(self):
@@ -497,6 +591,8 @@ class HDRMergeMaster(Frame):
                 "is_raw": stats.get("is_raw", False),
                 "brackets": stats.get("brackets", 0),
                 "sets": stats.get("sets", 0),
+                "file_count": stats.get("file_count", 0),
+                "brackets_override": self.folder_brackets_override.get(folder),
             }
             export_data["folders"].append(folder_data)
 
@@ -551,6 +647,7 @@ class HDRMergeMaster(Frame):
                     self.folder_align.clear()
                     self.folder_mtb_align.clear()
                     self.folder_stats.clear()
+                    self.folder_brackets_override.clear()
 
             # Import folders
             imported_count = 0
@@ -575,7 +672,11 @@ class HDRMergeMaster(Frame):
                     "is_raw": folder_data.get("is_raw", False),
                     "brackets": folder_data.get("brackets", 0),
                     "sets": folder_data.get("sets", 0),
+                    "file_count": folder_data.get("file_count", 0),
                 }
+                brackets_override = folder_data.get("brackets_override")
+                if brackets_override:
+                    self.folder_brackets_override[folder_path] = brackets_override
                 imported_count += 1
 
             self.update_batch_display()
@@ -805,6 +906,7 @@ class HDRMergeMaster(Frame):
                     "extension": stats.get("extension", ".tif"),
                     "brackets": stats.get("brackets", 0),
                     "sets": stats.get("sets", 0),
+                    "brackets_override": self.folder_brackets_override.get(folder),
                 }
             )
 

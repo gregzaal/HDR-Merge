@@ -197,6 +197,7 @@ class HDRExecutor:
                 # Get folder-specific align settings (mutually exclusive)
                 do_align = self.folder_align.get(str(proc_folder), False)
                 do_mtb_align = self.folder_mtb_align.get(str(proc_folder), not do_align)
+                brackets_override = fd.get("brackets_override")
 
                 brackets, sets, threads, error = self.processor.process_folder(
                     proc_folder,
@@ -213,6 +214,7 @@ class HDRExecutor:
                     folder_pp3_file,
                     executor,
                     self.output_format,
+                    brackets_override,
                 )
                 bracket_list.append(brackets)
                 total_sets += sets

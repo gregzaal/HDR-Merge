@@ -283,9 +283,14 @@ class HDRProcessor:
         pp3_file: str,
         executor: ThreadPoolExecutor,
         output_format: str = "exr",
+        brackets_override: int = None,
     ) -> tuple:
         """
         Process a single folder and return (num_brackets, num_sets, threads, error).
+
+        Args:
+            brackets_override: If set, use this as the number of images per bracket
+                instead of auto-detecting it from EXIF data.
 
         Returns:
             tuple: (brackets, sets, threads, error_message)
@@ -313,17 +318,28 @@ class HDRProcessor:
         if not files:
             return (0, 0, [], "No matching files found")
 
-        # Analyze EXIF to determine number of brackets
-        exifs = []
-        for f in files:
-            e = get_exif(f)
-            if e in exifs:
-                break
-            exifs.append(e)
-        brackets = len(exifs)
+        # Analyze EXIF to determine number of brackets, unless manually overridden
+        if brackets_override:
+            exifs = [get_exif(f) for f in files[:brackets_override]]
+            brackets = brackets_override
+        else:
+            exifs = []
+            for f in files:
+                e = get_exif(f)
+                if e in exifs:
+                    break
+                exifs.append(e)
+            brackets = len(exifs)
         print("\nFolder: %s" % folder)
         print("Brackets:", brackets)
         sets = chunks(files, brackets)
+        incomplete_sets = [s for s in sets if len(s) != brackets]
+        if incomplete_sets:
+            sets = [s for s in sets if len(s) == brackets]
+            print(
+                "Folder %s: Skipping %d incomplete set(s) (expected %d images per bracket)"
+                % (folder.name, len(incomplete_sets), brackets)
+            )
         print("Sets:", len(sets), "\n")
         if VERBOSE:
             print("Exifs:\n", str(exifs).replace("}, {", "},\n{"))
