@@ -192,11 +192,11 @@ The build will be located inside /build
 1. Update your version in pyproject.toml (e.g., to 0.1.4).
 
 2. Tag your commit in your terminal:
-'''Bash
+```Bash
 git add .
 git commit -m "Prepare release v0.1.4"
 git tag v0.1.4
 git push origin main --tags
-'''
+```
 
-3. This will add a new tag to the project and will trigger the action to make a build
+4. This will add a new tag to the project and will trigger the action to make a build
