@@ -23,9 +23,9 @@ def get_config(SCRIPT_DIR) -> dict:
     needs_setup = False
 
     # Required exe paths (must exist)
-    required_exes = ["blender_exe", "luminance_cli_exe"]
+    required_exes = ["blender_exe"]
     # Optional exe paths (can be missing, features will be disabled)
-    optional_exes = ["align_image_stack_exe", "rawtherapee_cli_exe"]
+    optional_exes = ["align_image_stack_exe", "rawtherapee_cli_exe", "luminance_cli_exe"]
 
     if not cf.exists() or cf.stat().st_size == 0:
         # Config doesn't exist or is empty - create with defaults
@@ -47,6 +47,20 @@ def get_config(SCRIPT_DIR) -> dict:
 
     # Always get exe_paths for later use
     exe_paths = config.get("exe_paths", {})
+
+    # Vendored binaries (dropped into vendor/<os>/) are used as a fallback
+    # for optional exes when no working user-configured path is set, so
+    # bundling one later is a drop-in with no config changes required.
+    vendor_dir = SCRIPT_DIR / "vendor" / ("win" if sys.platform.startswith("win") else "linux")
+    vendored_exes = {
+        "align_image_stack_exe": vendor_dir / (
+            "align_image_stack.exe" if sys.platform.startswith("win") else "align_image_stack"
+        ),
+    }
+    for key, vendored_path in vendored_exes.items():
+        configured_path = exe_paths.get(key, "")
+        if (not configured_path or not pathlib.Path(configured_path).exists()) and vendored_path.exists():
+            exe_paths[key] = str(vendored_path)
 
     # Check if required exe_paths are configured
     for key in required_exes:

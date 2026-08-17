@@ -3,7 +3,7 @@ import os
 import pathlib
 
 # Example call:
-# blender.exe --background HDR_Merge.blend --factory-startup --python blender_merge.py -- 3456x5184 "C:/foo/bar/Merged/exr/merged_000.exr" ND8_ND400 0 1 imgpath1___12 imgpath2___9 imgpath3___6 imgpath4___3 imgpath5___0
+# blender.exe --background HDR_Merge_5.1.blend --factory-startup --python blender_merge_5.1.py -- 3456x5184 "C:/foo/bar/Merged/exr/merged_000.exr" ND8_ND400 0 1 "C:/foo/bar/Merged/jpg/merged_000.jpg" imgpath1___12 imgpath2___9 imgpath3___6 imgpath4___3 imgpath5___0
 
 argv = sys.argv
 argv = argv[argv.index("--") + 1 :]  # get all args after "--"
@@ -12,9 +12,11 @@ EXR_OUTFILE = argv[1]
 FILTERS = argv[2]
 BRACKET_ID = int(argv[3])  # Bracket ID for unique filenames
 DO_MTB_ALIGN = argv[4] == "1"  # Whether to calculate MTB pixel-shift alignment
-IMAGES = sorted([i.split("___") for i in argv[5:]], key=lambda x: float(x[1]))
+JPG_OUTFILE = argv[5]  # Where to write the tonemapped JPG preview (via compositor)
+IMAGES = sorted([i.split("___") for i in argv[6:]], key=lambda x: float(x[1]))
 
 exr_fpath = pathlib.Path(EXR_OUTFILE)
+jpg_fpath = pathlib.Path(JPG_OUTFILE)
 
 # -----------------------------------------------------------------------------
 # 1. MTB Shift Calculation using OpenCV (skipped if DO_MTB_ALIGN is False)
@@ -140,6 +142,28 @@ nt.links.new(groups[-1].outputs[0], nt.nodes["OUT"].inputs[0])
 # Place the output node one column past the final merge group, same row.
 nt.nodes["OUT"].location = (groups[-1].location.x + NODE_SPACING_X, MERGE_ROW_Y)
 
+# --- JPG preview via in-compositor tonemapping ---
+# Writes the tonemapped JPG directly from this render pass instead of a
+# separate luminance-hdr-cli.exe call. The Tonemap -> File Output chain is
+# built ahead of time inside HDR_Merge_5.1.blend (named "File Output") rather than
+# created here at runtime: creating a CompositorNodeOutputFile's input socket
+# from Python leaves it as an untyped "extend" socket that Blender's own
+# linking UI resolves correctly but the Python API does not, so the node
+# silently produces no output. Wiring it once via the GUI and just feeding it
+# from here avoids that.
+jpg_out_node = nt.nodes.get("File Output")
+if jpg_out_node is not None:
+    # Feed the merge result into whatever already feeds "File Output" (the
+    # pre-wired Tonemap node), rather than "File Output" itself.
+    existing_links = jpg_out_node.inputs[0].links
+    entry_node = existing_links[0].from_node if existing_links else jpg_out_node
+    nt.links.new(groups[-1].outputs[0], entry_node.inputs[0])
+
+    jpg_out_node.directory = str(jpg_fpath.parent) + "/"
+    jpg_out_node.file_name = jpg_fpath.stem
+else:
+    print('Warning: "File Output" node not found in HDR_Merge_5.1.blend - skipping in-compositor JPG output.')
+
 
 def filter_fix(filter_type, node_tree, img_nodes):
     for n in img_nodes:
@@ -160,6 +184,8 @@ if "ND400" in FILTERS:
 
 if not exr_fpath.parent.exists():
     exr_fpath.parent.mkdir(parents=True, exist_ok=True)
+if not jpg_fpath.parent.exists():
+    jpg_fpath.parent.mkdir(parents=True, exist_ok=True)
 
 rset = bpy.context.scene.render
 rset.filepath = str(exr_fpath)
@@ -175,6 +201,15 @@ else:
     rset.image_settings.file_format = "OPEN_EXR"
 
 bpy.ops.render.render(write_still=True)  # Render!
+
+# The File Output node appends a frame-number suffix to its filename that we
+# don't control here, so locate whatever it produced and rename it to the
+# exact JPG path the caller expects.
+jpg_matches = list(jpg_fpath.parent.glob(jpg_fpath.stem + "*"))
+if jpg_matches:
+    jpg_matches[0].replace(jpg_fpath)
+else:
+    print("Warning: expected JPG output not found at %s (tonemap render failed?)" % jpg_fpath)
 
 bpy.ops.wm.save_as_mainfile(
     filepath=str(exr_fpath.with_name("bracket_%03d_sample.blend" % BRACKET_ID)),

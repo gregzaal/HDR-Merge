@@ -229,9 +229,11 @@ class HDRProcessor:
                 filter_used,
                 str(i),
             ]
-            # MTB alignment is only implemented in the Blender 5.0+ merge script
-            if merge_py.name == "blender_merge_5.0.py":
+            # MTB alignment and in-compositor tonemapping are only implemented
+            # in the Blender 4.5+ merge scripts
+            if merge_py.name in ("blender_merge_4.5.py", "blender_merge_5.1.py"):
                 cmd.append("1" if do_mtb_align else "0")
+                cmd.append(jpg_path.as_posix())
             cmd += img_list
             run_subprocess_with_prefix(cmd, i, "blender", out_folder)
 
@@ -241,21 +243,27 @@ class HDRProcessor:
                 blend1_path.unlink()
 
         if not jpg_path.exists():
-            cmd = [
-                luminance_cli_exe,
-                "-l",
-                exr_path.as_posix(),
-                "--tmo",
-                "reinhard05",
-                "-g",
-                "2.2",
-                "-b",
-                "-q",
-                "98",
-                "-o",
-                jpg_path.as_posix(),
-            ]
-            run_subprocess_with_prefix(cmd, i, "luminance", out_folder)
+            if luminance_cli_exe and pathlib.Path(luminance_cli_exe).exists():
+                cmd = [
+                    luminance_cli_exe,
+                    "-l",
+                    exr_path.as_posix(),
+                    "--tmo",
+                    "reinhard05",
+                    "-g",
+                    "2.2",
+                    "-b",
+                    "-q",
+                    "98",
+                    "-o",
+                    jpg_path.as_posix(),
+                ]
+                run_subprocess_with_prefix(cmd, i, "luminance", out_folder)
+            else:
+                print(
+                    "Folder %s: Bracket %d: luminance-hdr-cli not configured - skipping JPG preview"
+                    % (folder.name, i)
+                )
             if VERBOSE:
                 print(
                     "Folder %s: Bracket %d: Complete %s"

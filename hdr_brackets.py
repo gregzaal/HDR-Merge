@@ -2,6 +2,14 @@
 # nuitka-project: --include-data-dir=blender/=blender/
 # nuitka-project: --include-data-files=blender/*.py=blender/
 # nuitka-project: --include-data-files=icons/*=icons/
+# nuitka-project: --include-data-files=vendor/README.md=vendor/README.md
+# nuitka-project-if: {OS} == "Windows":
+#     nuitka-project: --include-data-dir=vendor/win/=vendor/win/
+#     nuitka-project: --include-data-files=vendor/win/align_image_stack.exe=vendor/win/align_image_stack.exe
+# nuitka-project-else:
+#     nuitka-project: --include-data-dir=vendor/linux/=vendor/linux/
+#     nuitka-project: --include-data-files=vendor/linux/align_image_stack=vendor/linux/align_image_stack
+# nuitka-project-endif
 # nuitka-project: --enable-plugin=tk-inter
 # nuitka-project: --output-dir=build
 # nuitka-project: --windows-icon-from-ico=icons/icon.ico

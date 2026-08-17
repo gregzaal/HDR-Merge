@@ -56,7 +56,6 @@ class HDRMergeMaster(Frame):
         self.folder_brackets_override = {}  # Maps folder path to manually-set images-per-bracket count
         self._selected_folder = None  # Track currently selected folder
         self._processing_thread = None  # Track processing thread
-        self._last_clipboard = None  # Track last processed clipboard content
         self._bracket_edit_entry = None  # Active inline-edit widget for the brackets column
 
         # Load saved GUI settings
@@ -64,10 +63,9 @@ class HDRMergeMaster(Frame):
 
         self.initUI()
 
-        # Check clipboard on startup (with a small delay to ensure UI is ready)
-        self.master.after(500, self.check_clipboard)
-        # Bind focus in to check clipboard
-        self.master.bind("<FocusIn>", lambda e: self.check_clipboard())
+        # Paste a folder path from the clipboard with Ctrl+V
+        self.master.bind("<Control-v>", self.paste_from_clipboard)
+        self.master.bind("<Control-V>", self.paste_from_clipboard)
 
     def initUI(self):
         # Initialize the user interface.
@@ -508,8 +506,8 @@ class HDRMergeMaster(Frame):
         if added_any:
             self.update_batch_display()
 
-    def check_clipboard(self):
-        """Check clipboard for a valid directory path and add it if found."""
+    def paste_from_clipboard(self, event=None):
+        """Add the folder path currently on the clipboard to the batch, if valid."""
         try:
             clipboard = self.master.clipboard_get()
             if not clipboard or not isinstance(clipboard, str):
@@ -517,11 +515,6 @@ class HDRMergeMaster(Frame):
 
             # Clean up: strip whitespace and quotes (often present when "Copy as path" in Windows)
             path_str = clipboard.strip().strip('"')
-
-            if self._last_clipboard == path_str:
-                return
-
-            self._last_clipboard = path_str
 
             path_obj = pathlib.Path(path_str)
             if path_obj.is_dir():
@@ -743,18 +736,24 @@ class HDRMergeMaster(Frame):
 
     def get_profile_for_folder(self, folder_path):
         """Get the PP3 profile for a folder, auto-matching by folder key or using default."""
+        # A manually assigned profile always wins, even over a local .pp3 file.
+        if folder_path in self.folder_profiles:
+            profile_name = self.folder_profiles[folder_path]
+            for profile in CONFIG.get("pp3_profiles", []):
+                if profile.get("name") == profile_name:
+                    return profile
+
+        # A .pp3 file already sitting next to the raw files takes priority
+        # over auto-matching/default profiles.
+        local_pp3 = next(pathlib.Path(folder_path).glob("*.pp3"), None)
+        if local_pp3:
+            return {"name": "%s (local)" % local_pp3.stem, "path": str(local_pp3)}
+
         profiles = CONFIG.get("pp3_profiles", [])
         if not profiles:
             return None
 
         folder_name = pathlib.Path(folder_path).name.lower()
-
-        # First check if folder has a manually assigned profile
-        if folder_path in self.folder_profiles:
-            profile_name = self.folder_profiles[folder_path]
-            for profile in profiles:
-                if profile.get("name") == profile_name:
-                    return profile
 
         # Then try to auto-match by folder key
         for profile in profiles:
