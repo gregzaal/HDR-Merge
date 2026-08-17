@@ -201,10 +201,10 @@ hdr_brackets.py has nuitka options preconfigured inside of it, so appropriate
 The build will be located inside /build
 
 On Linux, install `python3-tk` (and `python3-venv`/`python3-dev`) via your
-system package manager first, and set `UV_PYTHON_PREFERENCE=only-system`
-before running the build. Otherwise `uv` downloads its own standalone Python
-build whose tkinter is linked against a different Tcl/Tk than the one apt
-installs, and the bundled executable fails at startup with `undefined symbol:
+system package manager first, and set `UV_NO_MANAGED_PYTHON=1` before running
+the build. Otherwise `uv` downloads its own standalone Python build whose
+tkinter is linked against a different Tcl/Tk than the one apt installs, and
+the bundled executable fails at startup with `undefined symbol:
 TclBN_mp_to_ubin`.
 
 ### Github Actions Build

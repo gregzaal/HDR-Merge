@@ -65,7 +65,7 @@ jobs:
           # against a different Tcl/Tk ABI than apt's python3-tk, which
           # causes "undefined symbol: TclBN_mp_to_ubin" at runtime once
           # Nuitka bundles the system libtcl/libtk alongside it.
-          UV_PYTHON_PREFERENCE: only-system
+          UV_NO_MANAGED_PYTHON: "1"
         run: uv run python -m nuitka --output-filename=hdr_merge_master hdr_brackets.py
 
       - name: Package Linux Tarball
