@@ -23,6 +23,7 @@ from tkinter import (
 )
 
 from src.center import center
+from utils.get_blender_version import get_blender_version, is_blender_version_gte
 
 
 class SetupDialog(Toplevel):
@@ -120,7 +121,7 @@ class SetupDialog(Toplevel):
             },
             {
                 "key": "luminance_cli_exe",
-                "label": "Luminance HDR CLI (Required):",
+                "label": "Luminance HDR CLI (Optional):",
                 "download_url": "https://sourceforge.net/projects/qtpfsgui/files/luminance/",
             },
             {
@@ -314,7 +315,7 @@ class SetupDialog(Toplevel):
             new_exe_paths[key] = entry.get().strip()
 
         # Validate required paths
-        required_keys = ["blender_exe", "luminance_cli_exe"]
+        required_keys = ["blender_exe"]
         missing_required = []
         for key in required_keys:
             if not new_exe_paths.get(key):
@@ -411,14 +412,84 @@ class SetupDialog(Toplevel):
         messagebox.showinfo(
             "Setup Complete",
             "Settings have been saved successfully!\n\n"
-            "You can now start using HDR Merge Master.",
+            "You can now start using HDR Merge Master.\n\n"
+            + self._build_feature_summary(new_exe_paths),
         )
         self.destroy()
+
+    def _build_feature_summary(self, exe_paths):
+        """Summarize which optional features are available given the configured paths."""
+
+        def is_configured(key):
+            path = exe_paths.get(key, "")
+            return bool(path) and pathlib.Path(path).exists()
+
+        blender_exe = exe_paths.get("blender_exe", "")
+        blender_version = get_blender_version(blender_exe) if blender_exe else None
+
+        if blender_version and is_blender_version_gte(blender_version, (5, 0, 0)):
+            has_in_blender_features = True
+            version_line = "Blender %s detected (using blender_merge_5.1.py)." % ".".join(
+                map(str, blender_version)
+            )
+        elif blender_version and is_blender_version_gte(blender_version, (4, 5, 0)):
+            has_in_blender_features = True
+            version_line = "Blender %s detected (using blender_merge_4.5.py)." % ".".join(
+                map(str, blender_version)
+            )
+        elif blender_version:
+            has_in_blender_features = False
+            version_line = "Blender %s detected (using the legacy blender_merge.py)." % ".".join(
+                map(str, blender_version)
+            )
+        else:
+            has_in_blender_features = False
+            version_line = "Blender version could not be detected - assuming the legacy blender_merge.py."
+
+        lines = ["Available features:", "", version_line]
+
+        # HDR (Radiance) output works on every tier - it's just a render
+        # setting, unlike MTB alignment and in-Blender JPG tonemapping which
+        # need compositor APIs only available on Blender 4.5+.
+        lines.append("  [x] HDR (Radiance) output format option")
+
+        if has_in_blender_features:
+            lines += [
+                "  [x] MTB alignment inside Blender (OpenCV)",
+                "  [x] JPG preview tonemapped directly in Blender's compositor",
+            ]
+        else:
+            lines += [
+                "  [ ] MTB alignment and in-Blender JPG tonemapping require"
+                " Blender 4.5+ and are not available with this version.",
+            ]
+
+        if is_configured("align_image_stack_exe"):
+            lines.append("  [x] Hugin-based alignment (align_image_stack)")
+        else:
+            lines.append("  [ ] Hugin-based alignment not available (align_image_stack not configured)")
+
+        if is_configured("rawtherapee_cli_exe"):
+            lines.append("  [x] RAW file processing via RawTherapee")
+        else:
+            lines.append("  [ ] RAW file processing not available (RawTherapee not configured)")
+
+        if is_configured("luminance_cli_exe"):
+            if has_in_blender_features:
+                lines.append("  [x] Luminance HDR available as a JPG fallback")
+            else:
+                lines.append("  [x] Luminance HDR will generate the JPG preview")
+        elif has_in_blender_features:
+            lines.append("  [ ] No Luminance HDR fallback configured (JPG preview relies entirely on Blender)")
+        else:
+            lines.append("  [ ] Luminance HDR not configured: no JPG preview will be generated")
+
+        return "\n".join(lines)
 
     def cancel(self):
         """Close dialog without saving."""
         # Check if any required paths are missing
-        required_keys = ["blender_exe", "luminance_cli_exe"]
+        required_keys = ["blender_exe"]
         has_required = any(
             self.config.get("exe_paths", {}).get(key) for key in required_keys
         )

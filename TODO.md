@@ -1,8 +1,8 @@
 ## Small changes:
-- [ ] Auto-paste is sometimes annoying, replace this with a Ctrl-V hotkey
-- [ ] Use existing .pp3 files next to raw files if available
-- [ ] Perform tonemapping inside Blender instead of Luminance HDR and output JPGs alongside EXRs with a File Output node (inputs already in memory, Blender has arguably better tonemapping capability)
-- [ ] Include `align_image_stack.exe` in our source - it's GPL too.
+- [x] Auto-paste is sometimes annoying, replace this with a Ctrl-V hotkey
+- [x] Use existing .pp3 files next to raw files if available
+- [x] Perform tonemapping inside Blender instead of Luminance HDR and output JPGs alongside EXRs with a File Output node (inputs already in memory, Blender has arguably better tonemapping capability)
+- [x] Include `align_image_stack.exe` in our source - it's GPL too.
 - [ ] Define range of valid Blender versions, show warning if invalid
 - [ ] Better error handling in general, too many bug reports of people saying "it doesn't work" even when the issue is simple
 - [ ] Allow for inconsistant exposure brackets - currently the first exposure set determines how many images there are per set, but it should be possible to support exposure sets with varying numbers of images.

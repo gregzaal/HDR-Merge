@@ -98,17 +98,23 @@ class HDRExecutor:
 
     def _get_profile_for_folder(self, folder_path: str, profiles: list) -> dict:
         """Get the PP3 profile for a folder."""
-        if not profiles:
-            return None
-
-        folder_name = pathlib.Path(folder_path).name.lower()
-
-        # Check if folder has a manually assigned profile
+        # A manually assigned profile always wins, even over a local .pp3 file.
         if folder_path in self.folder_profiles:
             profile_name = self.folder_profiles[folder_path]
             for profile in profiles:
                 if profile.get("name") == profile_name:
                     return profile
+
+        # A .pp3 file already sitting next to the raw files takes priority
+        # over auto-matching/default profiles.
+        local_pp3 = next(pathlib.Path(folder_path).glob("*.pp3"), None)
+        if local_pp3:
+            return {"name": local_pp3.stem, "path": str(local_pp3)}
+
+        if not profiles:
+            return None
+
+        folder_name = pathlib.Path(folder_path).name.lower()
 
         # Try to auto-match by folder key
         for profile in profiles:
@@ -134,15 +140,23 @@ class HDRExecutor:
         luminance_cli_exe = EXE_PATHS.get("luminance_cli_exe", "")
         align_image_stack_exe = EXE_PATHS.get("align_image_stack_exe", "")
         rawtherapee_cli_exe = EXE_PATHS.get("rawtherapee_cli_exe", "")
-        merge_blend = SCRIPT_DIR / "blender" / "HDR_Merge.blend"
-        
-        # Check Blender version to select the appropriate merge script
+        # Check Blender version to select the appropriate merge script and
+        # matching .blend file. Each script has its own .blend because the
+        # node-group interface format (and the File Output node's API) isn't
+        # consistent across these Blender version tiers - a .blend saved by a
+        # newer Blender can fail to load correctly in an older one.
         blender_version = get_blender_version(blender_exe)
         if blender_version and is_blender_version_gte(blender_version, (5, 0, 0)):
-            merge_py = SCRIPT_DIR / "blender" / "blender_merge_5.0.py"
-            self._log("Blender version %s detected, using blender_merge_5.0.py" % ".".join(map(str, blender_version)))
+            merge_py = SCRIPT_DIR / "blender" / "blender_merge_5.1.py"
+            merge_blend = SCRIPT_DIR / "blender" / "HDR_Merge_5.1.blend"
+            self._log("Blender version %s detected, using blender_merge_5.1.py" % ".".join(map(str, blender_version)))
+        elif blender_version and is_blender_version_gte(blender_version, (4, 5, 0)):
+            merge_py = SCRIPT_DIR / "blender" / "blender_merge_4.5.py"
+            merge_blend = SCRIPT_DIR / "blender" / "HDR_Merge_4.5.blend"
+            self._log("Blender version %s detected, using blender_merge_4.5.py" % ".".join(map(str, blender_version)))
         else:
             merge_py = SCRIPT_DIR / "blender" / "blender_merge.py"
+            merge_blend = SCRIPT_DIR / "blender" / "HDR_Merge.blend"
             if blender_version:
                 self._log("Blender version %s detected, using blender_merge.py" % ".".join(map(str, blender_version)))
             else:
