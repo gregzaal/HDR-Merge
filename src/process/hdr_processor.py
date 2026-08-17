@@ -243,21 +243,27 @@ class HDRProcessor:
                 blend1_path.unlink()
 
         if not jpg_path.exists():
-            cmd = [
-                luminance_cli_exe,
-                "-l",
-                exr_path.as_posix(),
-                "--tmo",
-                "reinhard05",
-                "-g",
-                "2.2",
-                "-b",
-                "-q",
-                "98",
-                "-o",
-                jpg_path.as_posix(),
-            ]
-            run_subprocess_with_prefix(cmd, i, "luminance", out_folder)
+            if luminance_cli_exe and pathlib.Path(luminance_cli_exe).exists():
+                cmd = [
+                    luminance_cli_exe,
+                    "-l",
+                    exr_path.as_posix(),
+                    "--tmo",
+                    "reinhard05",
+                    "-g",
+                    "2.2",
+                    "-b",
+                    "-q",
+                    "98",
+                    "-o",
+                    jpg_path.as_posix(),
+                ]
+                run_subprocess_with_prefix(cmd, i, "luminance", out_folder)
+            else:
+                print(
+                    "Folder %s: Bracket %d: luminance-hdr-cli not configured - skipping JPG preview"
+                    % (folder.name, i)
+                )
             if VERBOSE:
                 print(
                     "Folder %s: Bracket %d: Complete %s"

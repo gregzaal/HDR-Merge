@@ -23,9 +23,9 @@ def get_config(SCRIPT_DIR) -> dict:
     needs_setup = False
 
     # Required exe paths (must exist)
-    required_exes = ["blender_exe", "luminance_cli_exe"]
+    required_exes = ["blender_exe"]
     # Optional exe paths (can be missing, features will be disabled)
-    optional_exes = ["align_image_stack_exe", "rawtherapee_cli_exe"]
+    optional_exes = ["align_image_stack_exe", "rawtherapee_cli_exe", "luminance_cli_exe"]
 
     if not cf.exists() or cf.stat().st_size == 0:
         # Config doesn't exist or is empty - create with defaults

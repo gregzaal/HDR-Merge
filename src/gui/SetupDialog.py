@@ -120,7 +120,7 @@ class SetupDialog(Toplevel):
             },
             {
                 "key": "luminance_cli_exe",
-                "label": "Luminance HDR CLI (Required):",
+                "label": "Luminance HDR CLI (Optional):",
                 "download_url": "https://sourceforge.net/projects/qtpfsgui/files/luminance/",
             },
             {
@@ -314,7 +314,7 @@ class SetupDialog(Toplevel):
             new_exe_paths[key] = entry.get().strip()
 
         # Validate required paths
-        required_keys = ["blender_exe", "luminance_cli_exe"]
+        required_keys = ["blender_exe"]
         missing_required = []
         for key in required_keys:
             if not new_exe_paths.get(key):
@@ -418,7 +418,7 @@ class SetupDialog(Toplevel):
     def cancel(self):
         """Close dialog without saving."""
         # Check if any required paths are missing
-        required_keys = ["blender_exe", "luminance_cli_exe"]
+        required_keys = ["blender_exe"]
         has_required = any(
             self.config.get("exe_paths", {}).get(key) for key in required_keys
         )

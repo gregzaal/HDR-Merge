@@ -14,16 +14,20 @@ This tool is used at [Poly Haven](https://polyhaven.com/hdris) to merge exposure
 #### Requires:
 
 * [Blender 4.5 LTS](https://www.blender.org/download/releases/4-5/)
-* [Luminance HDR v2.6.1](https://sourceforge.net/projects/qtpfsgui/files/luminance/)
 
 #### Optional:
 
-* [Hugin 2021](https://hugin.sourceforge.io/download/) (aligning images)
+* [Luminance HDR v2.6.1](https://sourceforge.net/projects/qtpfsgui/files/luminance/) (JPG preview) - not needed on Blender 5.0+, which tonemaps the JPG preview itself; only required as a fallback there, or as the sole JPG source on older Blender versions.
+* [Hugin 2021](https://hugin.sourceforge.io/download/) (aligning images) - some builds bundle `align_image_stack.exe` already; see *Bundling align_image_stack* below.
 * [Rawtherapee](https://rawtherapee.com/downloads/5.12/) (processing from raw files)
 
 1. Install the required software above.
 2. If the optional software is not installed, the relevant options will be disabled
 2. [Download the latest release](https://github.com/gregzaal/HDR-Merge-Master/releases) and run `hdr_merge_master.exe`
+
+#### Bundling align_image_stack
+
+A build can bundle its own copy of `align_image_stack.exe`/`align_image_stack` so users don't need to install Hugin separately. Drop the binary (plus its license text) into `vendor/win/` or `vendor/linux/` - see `vendor/README.md` for the exact expected filenames. If present, it's picked up automatically with no config changes needed; otherwise the app falls back to whatever path is configured in Setup.
 
 ### Run From Source (optional)
 
@@ -57,20 +61,20 @@ uv will automatically create a .venv, install the correct Python version (3.12+)
 
 ## Usage
 
-Running for the first time will prompt you to locate the `.exe` files for the required software above (`blender.exe`, `luminance-hdr-cli.exe`, etc.)
+Running for the first time will prompt you to locate the `.exe` files for the software above (`blender.exe` is required, the rest are optional).
 
 Note: Do not use the `align_image_stack.exe` that comes with LuminanceHDR, as this is a different version which won't work. Only use the one that comes with Hugin itself.
 
 Then:
 
-1. Select a folder that contains your full set of exposure brackets (see *Example Folder Structure* below). You can now add multiple folders to the input folders for batch processing.
-2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but if you want to use RAW files from your camera, **you need to install RawTherapee and enable the RAW option in the UI**. I typically do some minor tweaks to the RAW files in RawTherapee first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script.
+1. Select a folder that contains your full set of exposure brackets (see *Example Folder Structure* below). You can now add multiple folders to the input folders for batch processing. You can also paste a folder path from the clipboard with **Ctrl+V** instead of using the file browser.
+2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but if you want to use RAW files from your camera, **you need to install RawTherapee and enable the RAW option in the UI**. I typically do some minor tweaks to the RAW files in RawTherapee first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script. If a `.pp3` file already exists next to the RAW files themselves, it's used automatically instead of a managed profile - you can still override this per folder from the profile dropdown.
 3. Choose the number of threads (the number of simultaneous bracketed exposures to merge). Use as many threads as you can without running out of RAM or freezing your computer. In my experience 6 threads usually works fine for 32 GB RAM, but this depends on your camera resolution.
 4. Choose an alignment mode for the selected folder: **None** (no alignment; Translate nodes are still added in Blender so you can adjust alignment manually afterwards), **Hugin** (external pre-align via `align_image_stack`), or **MTB** (alignment computed inside Blender via OpenCV, default). These are mutually exclusive per folder.
 5. Choose the output format for the merged images: **EXR** (32-bit OpenEXR, default) or **HDR** (Radiance). This applies to the whole batch and requires Blender 5.0+ (blender_merge_5.0.py).
 6. The "Recursive" option will iterate through all subfolders of your selected folder.
 7. Click *Create HDRs*, and monitor the console window for progress and errors.
-8. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files (or Radiance `.hdr` files if that output format was chosen), while the `jpg` folder contains tonemapped versions of those files.
+8. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files (or Radiance `.hdr` files if that output format was chosen), while the `jpg` folder contains tonemapped versions of those files. On Blender 5.0+, the JPG is tonemapped directly inside Blender's compositor (no separate Luminance HDR call); it automatically falls back to `luminance-hdr-cli.exe` if that doesn't produce a file.
 
 Note: This tool does not do any ghost removal, so it's important that you use a steady tripod when shooting.
 
