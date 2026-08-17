@@ -448,16 +448,20 @@ class SetupDialog(Toplevel):
 
         lines = ["Available features:", "", version_line]
 
+        # HDR (Radiance) output works on every tier - it's just a render
+        # setting, unlike MTB alignment and in-Blender JPG tonemapping which
+        # need compositor APIs only available on Blender 4.5+.
+        lines.append("  [x] HDR (Radiance) output format option")
+
         if has_in_blender_features:
             lines += [
                 "  [x] MTB alignment inside Blender (OpenCV)",
-                "  [x] HDR (Radiance) output format option",
                 "  [x] JPG preview tonemapped directly in Blender's compositor",
             ]
         else:
             lines += [
-                "  [ ] MTB alignment, HDR output, and in-Blender JPG tonemapping"
-                " require Blender 4.5+ and are not available with this version.",
+                "  [ ] MTB alignment and in-Blender JPG tonemapping require"
+                " Blender 4.5+ and are not available with this version.",
             ]
 
         if is_configured("align_image_stack_exe"):
