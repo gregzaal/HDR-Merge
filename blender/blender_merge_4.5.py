@@ -139,31 +139,22 @@ nt.links.new(groups[-1].outputs[0], nt.nodes["OUT"].inputs[0])
 # Place the output node one column past the final merge group, same row.
 nt.nodes["OUT"].location = (groups[-1].location.x + NODE_SPACING_X, MERGE_ROW_Y)
 
-# --- JPG preview via in-compositor tonemapping ---
-# Writes the tonemapped JPG directly from this render pass instead of a
-# separate luminance-hdr-cli.exe call. The Tonemap -> File Output chain is
-# built ahead of time inside HDR_Merge_4.5.blend (named "File Output"):
-# on Blender 4.5 the File Output node's format isn't independently
-# configurable from Python - only base_path is - so JPEG/quality/color are
-# baked into the node once via the GUI, and this script only ever touches
-# base_path. Since base_path is the only thing that varies, and it's shared
-# by the whole node (not per-bracket), each bracket writes into its own
-# temporary subfolder to avoid concurrent brackets overwriting each other,
-# and the single resulting file is moved into place after render.
-jpg_out_node = nt.nodes.get("File Output")
-jpg_tmp_dir = None
-if jpg_out_node is not None:
-    # Feed the merge result into whatever already feeds "File Output" (the
-    # pre-wired Tonemap node), rather than "File Output" itself.
-    existing_links = jpg_out_node.inputs[0].links
-    entry_node = existing_links[0].from_node if existing_links else jpg_out_node
-    nt.links.new(groups[-1].outputs[0], entry_node.inputs[0])
-
-    jpg_tmp_dir = jpg_fpath.parent / (".jpg_out_tmp_%03d" % BRACKET_ID)
-    jpg_tmp_dir.mkdir(parents=True, exist_ok=True)
-    jpg_out_node.base_path = str(jpg_tmp_dir) + "/"
-else:
-    print('Warning: "File Output" node not found in HDR_Merge_4.5.blend - skipping in-compositor JPG output.')
+# --- Tonemap node for the JPG preview ---
+# On Blender 4.5, a CompositorNodeOutputFile's output format isn't
+# independently configurable from Python (only base_path is - it otherwise
+# just follows the scene's main render settings), so a File Output node
+# can't be used to write a JPG alongside the EXR/HDR in one pass. Instead,
+# this script renders twice: once through the normal "OUT" -> ... -> "EXPORT"
+# chain for the EXR/HDR, then reroutes this Tonemap node directly into
+# "EXPORT" and re-renders through the scene's normal render pipeline
+# (switched to JPEG) - see the two render passes below.
+TONEMAP_ROW_Y = MERGE_ROW_Y - NODE_SPACING_Y
+tonemap_node = nt.nodes.new("CompositorNodeTonemap")
+# RD_PHOTORECEPTOR is the Reinhard & Devlin (2005) operator - the same
+# algorithm Luminance's "reinhard05" uses.
+tonemap_node.tonemap_type = "RD_PHOTORECEPTOR"
+tonemap_node.location = (groups[-1].location.x, TONEMAP_ROW_Y)
+nt.links.new(groups[-1].outputs[0], tonemap_node.inputs[0])
 
 
 def filter_fix(filter_type, node_tree, img_nodes):
@@ -189,12 +180,13 @@ if not jpg_fpath.parent.exists():
     jpg_fpath.parent.mkdir(parents=True, exist_ok=True)
 
 rset = bpy.context.scene.render
-rset.filepath = str(exr_fpath)
 rset.resolution_x = RESOLUTION[0]
 rset.resolution_y = RESOLUTION[1]
 
+# --- Pass 1: render the merged EXR/HDR through "OUT" ---
 # Output format is driven by the output file's extension - .hdr renders as
 # Radiance HDR (no alpha channel support), anything else stays OpenEXR.
+rset.filepath = str(exr_fpath)
 if exr_fpath.suffix.lower() == ".hdr":
     rset.image_settings.file_format = "HDR"
     rset.image_settings.color_mode = "RGB"
@@ -203,19 +195,23 @@ else:
 
 bpy.ops.render.render(write_still=True)  # Render!
 
-if jpg_tmp_dir is not None:
-    # The File Output node names its own output file (we don't control the
-    # name, only the directory), so move whatever landed in the temp
-    # directory into place under the exact JPG path the caller expects.
-    tmp_matches = list(jpg_tmp_dir.glob("*"))
-    if tmp_matches:
-        tmp_matches[0].replace(jpg_fpath)
-    else:
-        print("Warning: expected JPG output not found in %s (tonemap render failed?)" % jpg_tmp_dir)
-    try:
-        jpg_tmp_dir.rmdir()
-    except OSError:
-        pass
+# --- Pass 2: reroute the tonemapped output into "EXPORT" and render the JPG ---
+# "OUT" isn't the node that actually drives the render - it feeds a few
+# processing steps baked into HDR_Merge_4.5.blend that end at "EXPORT", which
+# is pre-wired to the actual Composite node. For the JPG we bypass that
+# in-between processing (it's meant for the raw merge result, not the
+# already-tonemapped one) and feed "EXPORT" directly from the Tonemap node,
+# then switch the render settings to JPEG and render again. This reuses the
+# same render pipeline that already correctly handles the EXR/HDR format
+# switch above, sidestepping the File Output node limitation.
+nt.links.new(tonemap_node.outputs[0], nt.nodes["EXPORT"].inputs[0])
+
+rset.filepath = str(jpg_fpath)
+rset.image_settings.file_format = "JPEG"
+rset.image_settings.color_mode = "RGB"
+rset.image_settings.quality = 98
+
+bpy.ops.render.render(write_still=True)  # Render!
 
 bpy.ops.wm.save_as_mainfile(
     filepath=str(exr_fpath.with_name("bracket_%03d_sample.blend" % BRACKET_ID)),
