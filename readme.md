@@ -13,11 +13,11 @@ This tool is used at [Poly Haven](https://polyhaven.com/hdris) to merge exposure
 
 #### Requires:
 
-* [Blender 4.5 LTS](https://www.blender.org/download/releases/4-5/)
+* [Blender 4.5 LTS](https://www.blender.org/download/releases/4-5/) or [Blender 5.1 LTS](https://www.blender.org/download/releases/5-1/) - these are the two versions actively tested against. Older versions fall back to a legacy merge script with reduced features (see *Usage* below).
 
 #### Optional:
 
-* [Luminance HDR v2.6.1](https://sourceforge.net/projects/qtpfsgui/files/luminance/) (JPG preview) - not needed on Blender 5.0+, which tonemaps the JPG preview itself; only required as a fallback there, or as the sole JPG source on older Blender versions.
+* [Luminance HDR v2.6.1](https://sourceforge.net/projects/qtpfsgui/files/luminance/) (JPG preview) - not needed on Blender 4.5+, which tonemaps the JPG preview itself; only required as a fallback there, or as the sole JPG source on older Blender versions.
 * [Hugin 2021](https://hugin.sourceforge.io/download/) (aligning images) - some builds bundle `align_image_stack.exe` already; see *Bundling align_image_stack* below.
 * [Rawtherapee](https://rawtherapee.com/downloads/5.12/) (processing from raw files)
 
@@ -71,10 +71,12 @@ Then:
 2. Choose a pattern to match the files (e.g. `.tif` to get all TIFF files). All formats that Blender supports should work, but if you want to use RAW files from your camera, **you need to install RawTherapee and enable the RAW option in the UI**. I typically do some minor tweaks to the RAW files in RawTherapee first (e.g. chromatic aberration correction) and then export 16-bit `.tif` files to merge with this script. If a `.pp3` file already exists next to the RAW files themselves, it's used automatically instead of a managed profile - you can still override this per folder from the profile dropdown.
 3. Choose the number of threads (the number of simultaneous bracketed exposures to merge). Use as many threads as you can without running out of RAM or freezing your computer. In my experience 6 threads usually works fine for 32 GB RAM, but this depends on your camera resolution.
 4. Choose an alignment mode for the selected folder: **None** (no alignment; Translate nodes are still added in Blender so you can adjust alignment manually afterwards), **Hugin** (external pre-align via `align_image_stack`), or **MTB** (alignment computed inside Blender via OpenCV, default). These are mutually exclusive per folder.
-5. Choose the output format for the merged images: **EXR** (32-bit OpenEXR, default) or **HDR** (Radiance). This applies to the whole batch and requires Blender 5.0+ (blender_merge_5.0.py).
+5. Choose the output format for the merged images: **EXR** (32-bit OpenEXR, default) or **HDR** (Radiance). This applies to the whole batch and requires Blender 4.5+.
 6. The "Recursive" option will iterate through all subfolders of your selected folder.
 7. Click *Create HDRs*, and monitor the console window for progress and errors.
-8. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files (or Radiance `.hdr` files if that output format was chosen), while the `jpg` folder contains tonemapped versions of those files. On Blender 5.0+, the JPG is tonemapped directly inside Blender's compositor (no separate Luminance HDR call); it automatically falls back to `luminance-hdr-cli.exe` if that doesn't produce a file.
+8. The merged HDR images will be in a folder called `Merged` next to your original files. The `exr` subfolder contains the actual 32-bit HDR files (or Radiance `.hdr` files if that output format was chosen), while the `jpg` folder contains tonemapped versions of those files. On Blender 4.5+, the JPG is tonemapped directly inside Blender's compositor (no separate Luminance HDR call); it automatically falls back to `luminance-hdr-cli.exe` if that doesn't produce a file.
+
+The right merge script and matching `.blend` file are picked automatically based on your configured Blender version: `blender_merge_5.1.py` + `HDR_Merge_5.1.blend` for 5.0+, `blender_merge_4.5.py` + `HDR_Merge_4.5.blend` for 4.5-4.9 (both tiers support MTB alignment, the HDR/EXR output choice, and in-compositor JPG tonemapping), and `blender_merge.py` + `HDR_Merge.blend` for anything older or undetected (no MTB alignment, EXR output only, and always uses Luminance HDR for the JPG preview). Each tier has its own `.blend` file because a `.blend` saved by a newer Blender version isn't guaranteed to load correctly in an older one.
 
 Note: This tool does not do any ghost removal, so it's important that you use a steady tripod when shooting.
 

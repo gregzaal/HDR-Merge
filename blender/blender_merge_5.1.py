@@ -3,7 +3,7 @@ import os
 import pathlib
 
 # Example call:
-# blender.exe --background HDR_Merge.blend --factory-startup --python blender_merge_5.0.py -- 3456x5184 "C:/foo/bar/Merged/exr/merged_000.exr" ND8_ND400 0 1 "C:/foo/bar/Merged/jpg/merged_000.jpg" imgpath1___12 imgpath2___9 imgpath3___6 imgpath4___3 imgpath5___0
+# blender.exe --background HDR_Merge_5.1.blend --factory-startup --python blender_merge_5.1.py -- 3456x5184 "C:/foo/bar/Merged/exr/merged_000.exr" ND8_ND400 0 1 "C:/foo/bar/Merged/jpg/merged_000.jpg" imgpath1___12 imgpath2___9 imgpath3___6 imgpath4___3 imgpath5___0
 
 argv = sys.argv
 argv = argv[argv.index("--") + 1 :]  # get all args after "--"
@@ -145,7 +145,7 @@ nt.nodes["OUT"].location = (groups[-1].location.x + NODE_SPACING_X, MERGE_ROW_Y)
 # --- JPG preview via in-compositor tonemapping ---
 # Writes the tonemapped JPG directly from this render pass instead of a
 # separate luminance-hdr-cli.exe call. The Tonemap -> File Output chain is
-# built ahead of time inside HDR_Merge.blend (named "File Output") rather than
+# built ahead of time inside HDR_Merge_5.1.blend (named "File Output") rather than
 # created here at runtime: creating a CompositorNodeOutputFile's input socket
 # from Python leaves it as an untyped "extend" socket that Blender's own
 # linking UI resolves correctly but the Python API does not, so the node
@@ -162,7 +162,7 @@ if jpg_out_node is not None:
     jpg_out_node.directory = str(jpg_fpath.parent) + "/"
     jpg_out_node.file_name = jpg_fpath.stem
 else:
-    print('Warning: "File Output" node not found in HDR_Merge.blend - skipping in-compositor JPG output.')
+    print('Warning: "File Output" node not found in HDR_Merge_5.1.blend - skipping in-compositor JPG output.')
 
 
 def filter_fix(filter_type, node_tree, img_nodes):
