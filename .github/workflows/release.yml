@@ -51,7 +51,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-tk patchelf
+          sudo apt-get install -y python3-tk python3-venv python3-dev patchelf
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.0.0
@@ -59,6 +59,13 @@ jobs:
           enable-cache: true
 
       - name: Build with Nuitka
+        env:
+          # Force uv to use the system Python instead of downloading its own
+          # standalone build. python-build-standalone's tkinter is linked
+          # against a different Tcl/Tk ABI than apt's python3-tk, which
+          # causes "undefined symbol: TclBN_mp_to_ubin" at runtime once
+          # Nuitka bundles the system libtcl/libtk alongside it.
+          UV_PYTHON_PREFERENCE: only-system
         run: uv run python -m nuitka --output-filename=hdr_merge_master hdr_brackets.py
 
       - name: Package Linux Tarball
